@@ -1,13 +1,19 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
 const express = require('express');
 
+const requestLogger = require('./middleware/logger');
+const rateLimiter = require('./middleware/rateLimiter');
 const shopifyRoutes = require('./routes/shopify');
 const tripsRoutes = require('./routes/trips');
 const driversRoutes = require('./routes/drivers');
 const merchantsRoutes = require('./routes/merchants');
 
 const app = express();
+
+app.use(requestLogger);
+app.use(rateLimiter);
 
 app.use(
   '/api/v1/odofy/integrations/shopify',
