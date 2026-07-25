@@ -1,37 +1,86 @@
 const express = require('express');
 const crypto = require('crypto');
+const path = require('path');
+const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../db');
 const { authenticateDriver } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/register', async (req, res) => {
+const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    cb(null, uniqueName);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = {
+      license_photo: /^image\//,
+      insurance_proof: /^(image\/|application\/pdf$)/,
+      profile_photo: /^image\//,
+    };
+    const regex = allowed[file.fieldname];
+    if (!regex || !regex.test(file.mimetype)) {
+      return cb(new Error(`Invalid file type for ${file.fieldname}`));
+    }
+    cb(null, true);
+  },
+});
+
+const uploadFields = upload.fields([
+  { name: 'license_photo', maxCount: 1 },
+  { name: 'insurance_proof', maxCount: 1 },
+  { name: 'profile_photo', maxCount: 1 },
+]);
+
+const PUBLIC_BASE = 'https://82eeac66dfefbde793fabbb1b59d76e4.ctonew.app/uploads';
+
+router.post('/register', (req, res, next) => {
+  uploadFields(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: `Upload error: ${err.message}` });
+      }
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
-    const {
-      first_name,
-      last_name,
-      phone_number,
-      license_photo_url,
-      insurance_proof_url,
-      profile_photo_url,
-      vehicle_make_model,
-    } = req.body;
+    const { first_name, last_name, phone_number, vehicle_make_model } = req.body;
 
     const missing = [];
     if (!first_name) missing.push('first_name');
     if (!last_name) missing.push('last_name');
     if (!phone_number) missing.push('phone_number');
-    if (!license_photo_url) missing.push('license_photo_url');
-    if (!insurance_proof_url) missing.push('insurance_proof_url');
-    if (!profile_photo_url) missing.push('profile_photo_url');
     if (!vehicle_make_model) missing.push('vehicle_make_model');
+    if (!req.files || !req.files.license_photo) missing.push('license_photo');
+    if (!req.files || !req.files.insurance_proof) missing.push('insurance_proof');
+    if (!req.files || !req.files.profile_photo) missing.push('profile_photo');
 
     if (missing.length > 0) {
       return res.status(400).json({
         error: `Missing required fields: ${missing.join(', ')}`,
       });
     }
+
+    const licensePhotoFile = req.files.license_photo[0];
+    const insuranceProofFile = req.files.insurance_proof[0];
+    const profilePhotoFile = req.files.profile_photo[0];
+
+    const license_photo_url = `${PUBLIC_BASE}/${licensePhotoFile.filename}`;
+    const insurance_proof_url = `${PUBLIC_BASE}/${insuranceProofFile.filename}`;
+    const profile_photo_url = `${PUBLIC_BASE}/${profilePhotoFile.filename}`;
 
     const authToken = crypto.randomBytes(32).toString('hex');
 
