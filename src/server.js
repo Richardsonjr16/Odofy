@@ -24,6 +24,8 @@ app.use(
 
 app.use(express.json());
 
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
 app.use('/api/v1/odofy/trips', tripsRoutes);
 app.use('/api/v1/odofy/drivers', driversRoutes);
 app.use('/api/v1/odofy/merchants', merchantsRoutes);
