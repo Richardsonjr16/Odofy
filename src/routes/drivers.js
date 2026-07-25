@@ -8,11 +8,28 @@ const router = express.Router();
 
 router.post('/register', async (req, res) => {
   try {
-    const { first_name, last_name, phone_number } = req.body;
+    const {
+      first_name,
+      last_name,
+      phone_number,
+      license_photo_url,
+      insurance_proof_url,
+      profile_photo_url,
+      vehicle_make_model,
+    } = req.body;
 
-    if (!first_name || !last_name || !phone_number) {
+    const missing = [];
+    if (!first_name) missing.push('first_name');
+    if (!last_name) missing.push('last_name');
+    if (!phone_number) missing.push('phone_number');
+    if (!license_photo_url) missing.push('license_photo_url');
+    if (!insurance_proof_url) missing.push('insurance_proof_url');
+    if (!profile_photo_url) missing.push('profile_photo_url');
+    if (!vehicle_make_model) missing.push('vehicle_make_model');
+
+    if (missing.length > 0) {
       return res.status(400).json({
-        error: 'Missing required fields: first_name, last_name, phone_number',
+        error: `Missing required fields: ${missing.join(', ')}`,
       });
     }
 
@@ -20,10 +37,22 @@ router.post('/register', async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO odofy_drivers
-         (uuid, first_name, last_name, phone_number, auth_token, status)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (uuid, first_name, last_name, phone_number, auth_token, status,
+          license_photo_url, insurance_proof_url, profile_photo_url, vehicle_make_model)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [uuidv4(), first_name, last_name, phone_number, authToken, 'ACTIVE']
+      [
+        uuidv4(),
+        first_name,
+        last_name,
+        phone_number,
+        authToken,
+        'ACTIVE',
+        license_photo_url,
+        insurance_proof_url,
+        profile_photo_url,
+        vehicle_make_model,
+      ]
     );
 
     return res.status(201).json(result.rows[0]);
