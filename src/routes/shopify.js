@@ -91,6 +91,11 @@ router.post('/', async (req, res) => {
       destLongitude
     );
 
+    let tip = 0.0;
+    if (typeof payload.driver_tip_allocation === 'number' && payload.driver_tip_allocation >= 0) {
+      tip = payload.driver_tip_allocation;
+    }
+
     const tripId = uuidv4();
     const tripStatus =
       distance > DELIVERY_RADIUS_MILES ? 'REJECTED' : 'PENDING_PICKUP';
@@ -99,8 +104,8 @@ router.post('/', async (req, res) => {
       `INSERT INTO odofy_trips
          (uuid, merchant_id, customer_name, customer_phone,
           delivery_address, dest_latitude, dest_longitude,
-          status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+          status, driver_tip_allocation, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
        RETURNING *`,
       [
         tripId,
@@ -111,6 +116,7 @@ router.post('/', async (req, res) => {
         destLatitude,
         destLongitude,
         tripStatus,
+        tip,
       ]
     );
 
