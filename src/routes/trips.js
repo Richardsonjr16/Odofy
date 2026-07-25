@@ -12,12 +12,17 @@ const DELIVERY_RADIUS_MILES = 4.33;
 
 router.post('/manual', authenticateMerchant, async (req, res) => {
   try {
-    const { customer_name, customer_phone, delivery_address } = req.body;
+    const { customer_name, customer_phone, delivery_address, driver_tip_allocation } = req.body;
 
     if (!customer_name || !customer_phone || !delivery_address) {
       return res.status(400).json({
         error: 'Missing required fields: customer_name, customer_phone, delivery_address',
       });
+    }
+
+    let tip = 0.0;
+    if (typeof driver_tip_allocation === 'number' && driver_tip_allocation >= 0) {
+      tip = driver_tip_allocation;
     }
 
     let destLatitude;
@@ -46,8 +51,8 @@ router.post('/manual', authenticateMerchant, async (req, res) => {
       `INSERT INTO odofy_trips
          (uuid, merchant_id, customer_name, customer_phone,
           delivery_address, dest_latitude, dest_longitude,
-          status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+          status, driver_tip_allocation, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
        RETURNING *`,
       [
         tripId,
@@ -58,6 +63,7 @@ router.post('/manual', authenticateMerchant, async (req, res) => {
         destLatitude,
         destLongitude,
         tripStatus,
+        tip,
       ]
     );
 
