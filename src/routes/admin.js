@@ -14,24 +14,6 @@ function authenticateAdmin(req, res, next) {
   next();
 }
 
-router.get('/drivers/pending', authenticateAdmin, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT uuid, first_name, last_name, phone_number, status,
-              license_photo_url, insurance_proof_url, profile_photo_url,
-              vehicle_make_model, created_at
-       FROM odofy_drivers
-       WHERE status = 'PENDING_REVIEW'
-       ORDER BY created_at DESC`
-    );
-
-    return res.status(200).json(result.rows);
-  } catch (err) {
-    console.error('List pending drivers error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 router.post('/drivers/:id/approve', authenticateAdmin, async (req, res) => {
   try {
     const driverId = req.params.id;
@@ -60,7 +42,7 @@ router.post('/drivers/:id/approve', authenticateAdmin, async (req, res) => {
 
     sendSms(
       updatedDriver.phone_number,
-      'Welcome to Odofy! Your driver account has been approved. You can now start accepting deliveries.'
+      `Odofy Alert: Welcome to the fleet, ${updatedDriver.first_name}! 🐻 Your priority student courier profile has been officially approved. Open your driver dashboard map to start claiming active Springfield retail routes: https://odofy.com`
     ).catch((err) => console.error('Driver approval SMS failed:', err));
 
     return res.status(200).json(updatedDriver);
@@ -86,7 +68,7 @@ router.post('/drivers/:id/reject', authenticateAdmin, async (req, res) => {
     const driver = driverResult.rows[0];
 
     if (driver.status === 'REJECTED') {
-      return res.status(200).json({ message: 'Driver already rejected', driver });
+      return res.status(200).json({ message: 'Driver already rejected' });
     }
 
     const result = await pool.query(
@@ -98,7 +80,7 @@ router.post('/drivers/:id/reject', authenticateAdmin, async (req, res) => {
 
     sendSms(
       updatedDriver.phone_number,
-      'Your Odofy driver application has been declined. If you have questions, please contact support.'
+      `Odofy Status Update: Hello ${updatedDriver.first_name}, your driver profile application could not be verified due to incomplete or expired document uploads (License/Insurance). Please re-submit clear, active images here to clear your review hold: https://odofy.com`
     ).catch((err) => console.error('Driver rejection SMS failed:', err));
 
     return res.status(200).json(updatedDriver);
