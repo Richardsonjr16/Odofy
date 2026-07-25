@@ -43,7 +43,7 @@ const uploadFields = upload.fields([
   { name: 'profile_photo', maxCount: 1 },
 ]);
 
-const PUBLIC_BASE = 'https://82eeac66dfefbde793fabbb1b59d76e4.ctonew.app/uploads';
+const PUBLIC_BASE = 'https://getodofy.com/uploads';
 
 router.post('/register', (req, res, next) => {
   uploadFields(req, res, (err) => {

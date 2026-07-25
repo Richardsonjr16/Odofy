@@ -42,7 +42,7 @@ router.post('/drivers/:id/approve', authenticateAdmin, async (req, res) => {
 
     sendSms(
       updatedDriver.phone_number,
-      `Odofy Alert: Welcome to the fleet, ${updatedDriver.first_name}! 🐻 Your priority student courier profile has been officially approved. Open your driver dashboard map to start claiming active Springfield retail routes: https://odofy.com`
+      `Odofy Alert: Welcome to the fleet, ${updatedDriver.first_name}! 🐻 Your priority student courier profile has been officially approved. Open your driver dashboard map to start claiming active Springfield retail routes: https://getodofy.com`
     ).catch((err) => console.error('Driver approval SMS failed:', err));
 
     return res.status(200).json(updatedDriver);
@@ -80,7 +80,7 @@ router.post('/drivers/:id/reject', authenticateAdmin, async (req, res) => {
 
     sendSms(
       updatedDriver.phone_number,
-      `Odofy Status Update: Hello ${updatedDriver.first_name}, your driver profile application could not be verified due to incomplete or expired document uploads (License/Insurance). Please re-submit clear, active images here to clear your review hold: https://odofy.com`
+      `Odofy Status Update: Hello ${updatedDriver.first_name}, your driver profile application could not be verified due to incomplete or expired document uploads (License/Insurance). Please re-submit clear, active images here to clear your review hold: https://getodofy.com`
     ).catch((err) => console.error('Driver rejection SMS failed:', err));
 
     return res.status(200).json(updatedDriver);
