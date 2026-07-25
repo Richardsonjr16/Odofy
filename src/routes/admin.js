@@ -42,12 +42,50 @@ router.post('/drivers/:id/approve', authenticateAdmin, async (req, res) => {
 
     sendSms(
       updatedDriver.phone_number,
-      'Welcome to Odofy! Your driver account has been approved. You can now start accepting deliveries.'
+      `Odofy Alert: Welcome to the fleet, ${updatedDriver.first_name}! 🐻 Your priority student courier profile has been officially approved. Open your driver dashboard map to start claiming active Springfield retail routes: https://odofy.com`
     ).catch((err) => console.error('Driver approval SMS failed:', err));
 
     return res.status(200).json(updatedDriver);
   } catch (err) {
     console.error('Driver approval error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/drivers/:id/reject', authenticateAdmin, async (req, res) => {
+  try {
+    const driverId = req.params.id;
+
+    const driverResult = await pool.query(
+      'SELECT * FROM odofy_drivers WHERE uuid = $1',
+      [driverId]
+    );
+
+    if (driverResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+
+    const driver = driverResult.rows[0];
+
+    if (driver.status === 'REJECTED') {
+      return res.status(200).json({ message: 'Driver already rejected' });
+    }
+
+    const result = await pool.query(
+      "UPDATE odofy_drivers SET status = 'REJECTED' WHERE uuid = $1 RETURNING *",
+      [driverId]
+    );
+
+    const updatedDriver = result.rows[0];
+
+    sendSms(
+      updatedDriver.phone_number,
+      `Odofy Status Update: Hello ${updatedDriver.first_name}, your driver profile application could not be verified due to incomplete or expired document uploads (License/Insurance). Please re-submit clear, active images here to clear your review hold: https://odofy.com`
+    ).catch((err) => console.error('Driver rejection SMS failed:', err));
+
+    return res.status(200).json(updatedDriver);
+  } catch (err) {
+    console.error('Driver rejection error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
