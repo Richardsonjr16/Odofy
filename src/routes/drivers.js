@@ -37,9 +37,9 @@ router.post('/register', async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO odofy_drivers
-         (uuid, first_name, last_name, phone_number, auth_token, status,
+         (uuid, first_name, last_name, phone_number, auth_token,
           license_photo_url, insurance_proof_url, profile_photo_url, vehicle_make_model)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         uuidv4(),
@@ -47,7 +47,6 @@ router.post('/register', async (req, res) => {
         last_name,
         phone_number,
         authToken,
-        'ACTIVE',
         license_photo_url,
         insurance_proof_url,
         profile_photo_url,

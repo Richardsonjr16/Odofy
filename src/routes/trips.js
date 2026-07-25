@@ -76,8 +76,14 @@ router.post('/manual', authenticateMerchant, async (req, res) => {
   }
 });
 
-router.get('/available', authenticateDriver, async (_req, res) => {
+router.get('/available', authenticateDriver, async (req, res) => {
   try {
+    if (req.driver.status === 'PENDING_REVIEW') {
+      return res.status(403).json({
+        error: 'Account pending review. Your driver application is being vetted.',
+      });
+    }
+
     const result = await pool.query(
       'SELECT * FROM odofy_trips WHERE status = $1 ORDER BY created_at ASC',
       ['PENDING_PICKUP']

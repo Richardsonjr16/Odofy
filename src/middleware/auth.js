@@ -11,8 +11,8 @@ async function authenticateDriver(req, res, next) {
 
   try {
     const result = await pool.query(
-      'SELECT * FROM odofy_drivers WHERE auth_token = $1 AND status = $2',
-      [token, 'ACTIVE']
+      'SELECT * FROM odofy_drivers WHERE auth_token = $1 AND status IN ($2, $3)',
+      [token, 'ACTIVE', 'PENDING_REVIEW']
     );
 
     if (result.rows.length === 0) {
