@@ -54,7 +54,7 @@ router.post('/manual', authenticateMerchant, async (req, res) => {
       const openingTime = merchant.opening_time || '08:00:00';
       const closingTime = merchant.closing_time || '22:00:00';
 
-      if (isMerchantOpen(openingTime, closingTime)) {
+      if (isMerchantOpen(openingTime, closingTime, merchant.timezone)) {
         tripStatus = 'PENDING_PICKUP';
       } else {
         tripStatus = 'HOLD_UNTIL_OPENING';
