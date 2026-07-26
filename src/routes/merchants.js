@@ -6,9 +6,13 @@ const { geocodeAddress } = require('../lib/geocode');
 
 const router = express.Router();
 
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
 router.post('/register', async (req, res) => {
   try {
-    const { business_name, storefront_address, shop_domain } = req.body;
+    const { business_name, storefront_address, shop_domain, contact_email, password } = req.body;
 
     if (!business_name || !storefront_address) {
       return res.status(400).json({
@@ -28,12 +32,15 @@ router.post('/register', async (req, res) => {
 
     const apiSecretKey = crypto.randomBytes(32).toString('hex');
 
+    const passwordHash = password ? hashPassword(password) : null;
+    const email = contact_email || null;
+
     const result = await pool.query(
       `INSERT INTO odofy_merchants
-         (uuid, business_name, storefront_address, latitude, longitude, api_secret_key, shop_domain)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (uuid, business_name, storefront_address, latitude, longitude, api_secret_key, shop_domain, contact_email, password_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [uuidv4(), business_name, storefront_address, latitude, longitude, apiSecretKey, shop_domain || null]
+      [uuidv4(), business_name, storefront_address, latitude, longitude, apiSecretKey, shop_domain || null, email, passwordHash]
     );
 
     return res.status(201).json(result.rows[0]);
