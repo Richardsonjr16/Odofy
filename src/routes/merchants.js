@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../db');
 const { geocodeAddress } = require('../lib/geocode');
+const { sendTransactionalEmail } = require('../lib/email');
 
 const router = express.Router();
 
@@ -43,7 +44,35 @@ router.post('/register', async (req, res) => {
       [uuidv4(), business_name, storefront_address, latitude, longitude, apiSecretKey, shop_domain || null, email, passwordHash]
     );
 
-    return res.status(201).json(result.rows[0]);
+    const merchant = result.rows[0];
+
+    if (email) {
+      const htmlBody = `
+        <h1>Welcome to Odofy, ${business_name}!</h1>
+        <p>Your merchant account has been created successfully. Here are your setup details:</p>
+        <h2>Your API Key</h2>
+        <p><code style="background:#f4f4f4;padding:8px 12px;border-radius:4px;font-family:monospace;font-size:14px;">${apiSecretKey}</code></p>
+        <h2>Shopify Webhook URL</h2>
+        <p><code style="background:#f4f4f4;padding:8px 12px;border-radius:4px;font-family:monospace;font-size:14px;">https://api.getodofy.com/webhooks/shopify</code></p>
+        <h2>Getting Started</h2>
+        <ol>
+          <li>Copy your API key above and store it securely.</li>
+          <li>In your Shopify admin, go to <strong>Settings &gt; Notifications &gt; Webhooks</strong>.</li>
+          <li>Create a new webhook for <strong>Order paid</strong> events pointing to the URL above.</li>
+          <li>Use the API key as the <code>X-API-Key</code> header when pushing orders to Odofy.</li>
+        </ol>
+        <p>If you have any questions, reply to this email — we're happy to help!</p>
+        <p>— The Odofy Team</p>
+      `;
+
+      sendTransactionalEmail(
+        email,
+        'Welcome to Odofy — Your API Key is Ready',
+        htmlBody
+      ).catch((err) => console.error('Welcome email failed:', err));
+    }
+
+    return res.status(201).json(merchant);
   } catch (err) {
     console.error('Merchant registration error:', err);
     return res.status(500).json({ error: 'Internal server error' });

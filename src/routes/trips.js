@@ -252,6 +252,10 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
         ).catch((err) => console.error('SMS send failed:', err));
       }
 
+      console.log(
+        `Delivery confirmation for customer ${trip.customer_name} — email would be sent here`
+      );
+
       return res.status(200).json(result.rows[0]);
     }
 

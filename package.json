@@ -9,6 +9,7 @@
     "test:student-priority": "node src/tests/studentPriority.test.js"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.1095.0",
     "axios": "^1.7.0",
     "dotenv": "^16.4.0",
     "express": "^4.21.0",
