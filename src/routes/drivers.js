@@ -57,7 +57,7 @@ router.post('/register', (req, res, next) => {
   });
 }, async (req, res) => {
   try {
-    const { first_name, last_name, phone_number, vehicle_make_model } = req.body;
+    const { first_name, last_name, phone_number, vehicle_make_model, email } = req.body;
 
     const missing = [];
     if (!first_name) missing.push('first_name');
@@ -84,11 +84,13 @@ router.post('/register', (req, res, next) => {
 
     const authToken = crypto.randomBytes(32).toString('hex');
 
+    const driverEmail = email && typeof email === 'string' && email.trim() ? email.trim() : null;
+
     const result = await pool.query(
       `INSERT INTO odofy_drivers
          (uuid, first_name, last_name, phone_number, auth_token,
-          license_photo_url, insurance_proof_url, profile_photo_url, vehicle_make_model)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          license_photo_url, insurance_proof_url, profile_photo_url, vehicle_make_model, email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         uuidv4(),
@@ -100,6 +102,7 @@ router.post('/register', (req, res, next) => {
         insurance_proof_url,
         profile_photo_url,
         vehicle_make_model,
+        driverEmail,
       ]
     );
 
