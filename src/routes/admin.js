@@ -138,21 +138,36 @@ router.get('/merchants', authenticateAdmin, async (_req, res) => {
 
 router.get('/analytics', authenticateAdmin, async (_req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT COALESCE(SUM(driver_payout + COALESCE(driver_tip_allocation, 0)), 0) AS driver_revenue_pool FROM odofy_trips WHERE status = 'DELIVERED'"
+    const driverRevenueResult = await pool.query(
+      `SELECT COALESCE(SUM(driver_payout + COALESCE(driver_tip_allocation, 0)), 0) AS driver_revenue_pool
+       FROM odofy_trips WHERE status = 'DELIVERED'`
     );
     const completedResult = await pool.query(
-      "SELECT COUNT(*)::int AS total_completed FROM odofy_trips WHERE status = 'DELIVERED'"
+      `SELECT COUNT(*)::int AS total_completed FROM odofy_trips WHERE status = 'DELIVERED'`
+    );
+    const platformResult = await pool.query(
+      `SELECT COALESCE(SUM(merchant_fee), 0) - COALESCE(SUM(driver_payout), 0) AS platform_net_profit
+       FROM odofy_trips WHERE status = 'DELIVERED'`
+    );
+    const stackedResult = await pool.query(
+      `SELECT COUNT(*)::int AS stacked_deliveries FROM odofy_trips
+       WHERE batch_id IS NOT NULL AND status = 'DELIVERED'`
     );
 
     const totalCompletedTrips = completedResult.rows[0].total_completed;
-    const driverRevenuePool = parseFloat(result.rows[0].driver_revenue_pool);
-    const platformNetProfit = totalCompletedTrips * 2.0;
+    const driverRevenuePool = parseFloat(driverRevenueResult.rows[0].driver_revenue_pool);
+    const platformNetProfit = parseFloat(platformResult.rows[0].platform_net_profit);
+    const stackedDeliveries = stackedResult.rows[0].stacked_deliveries;
+    const platformMargin = totalCompletedTrips > 0
+      ? (platformNetProfit / totalCompletedTrips)
+      : 0;
 
     return res.status(200).json({
       totalCompletedTrips,
       driverRevenuePool,
       platformNetProfit,
+      stackedDeliveries,
+      platformMargin: Math.round(platformMargin * 100) / 100,
     });
   } catch (err) {
     console.error('Fetch analytics error:', err);
