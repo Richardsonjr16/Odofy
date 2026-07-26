@@ -5,6 +5,7 @@ const { haversineDistance } = require('../lib/haversine');
 const { geocodeAddress } = require('../lib/geocode');
 const { sendSms } = require('../lib/sms');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -148,17 +149,55 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
       }
 
       const result = await pool.query(
-        `UPDATE odofy_trips SET status = $1, driver_id = $2 WHERE uuid = $3 RETURNING *`,
+        `UPDATE odofy_trips SET status = $1, driver_id = $2, driver_payout = 6.50, platform_profit = 2.00 WHERE uuid = $3 RETURNING *`,
         ['EN_ROUTE', driverId, tripId]
       );
 
-      if (trip.customer_phone) {
-        sendSms(trip.customer_phone, 'Your Odofy delivery is on its way!').catch(
+      const claimedTrip = result.rows[0];
+
+      if (claimedTrip.customer_phone) {
+        sendSms(claimedTrip.customer_phone, 'Your Odofy delivery is on its way!').catch(
           (err) => console.error('SMS send failed:', err)
         );
       }
 
-      return res.status(200).json(result.rows[0]);
+      const stackResult = await pool.query(
+        `SELECT * FROM odofy_trips
+         WHERE merchant_id = $1
+           AND status = 'PENDING_PICKUP'
+           AND uuid != $2
+           AND driver_id IS NULL
+         LIMIT 1`,
+        [claimedTrip.merchant_id, tripId]
+      );
+
+      if (stackResult.rows.length > 0) {
+        const stackedTrip = stackResult.rows[0];
+        const batchId = crypto.randomUUID();
+
+        await pool.query(
+          `UPDATE odofy_trips SET batch_id = $1 WHERE uuid = $2`,
+          [batchId, tripId]
+        );
+
+        await pool.query(
+          `UPDATE odofy_trips
+           SET batch_id = $1, driver_payout = 2.50, platform_profit = 6.00,
+               status = 'EN_ROUTE', driver_id = $2
+           WHERE uuid = $3`,
+          [batchId, driverId, stackedTrip.uuid]
+        );
+
+        claimedTrip.batch_id = batchId;
+
+        if (stackedTrip.customer_phone) {
+          sendSms(stackedTrip.customer_phone, 'Your Odofy delivery is on its way!').catch(
+            (err) => console.error('SMS send failed:', err)
+          );
+        }
+      }
+
+      return res.status(200).json(claimedTrip);
     }
 
     if (status === 'DELIVERED') {
