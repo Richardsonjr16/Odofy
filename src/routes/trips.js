@@ -90,10 +90,22 @@ router.get('/available', authenticateDriver, async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      'SELECT * FROM odofy_trips WHERE status = $1 ORDER BY created_at ASC',
-      ['PENDING_PICKUP']
-    );
+    const driver = req.driver;
+    const isStudent = driver.email && driver.email.toLowerCase().endsWith('.edu');
+
+    let result;
+    if (isStudent) {
+      result = await pool.query(
+        'SELECT * FROM odofy_trips WHERE status = $1 ORDER BY created_at ASC',
+        ['PENDING_PICKUP']
+      );
+    } else {
+      const cutoffTime = new Date(Date.now() - 120000).toISOString();
+      result = await pool.query(
+        'SELECT * FROM odofy_trips WHERE status = $1 AND created_at <= $2 ORDER BY created_at ASC',
+        ['PENDING_PICKUP', cutoffTime]
+      );
+    }
 
     return res.status(200).json(result.rows);
   } catch (err) {
