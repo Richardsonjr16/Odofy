@@ -1,32 +1,24 @@
 const pool = require('../db');
+const { isMerchantOpen } = require('../lib/hours');
 
 const RELEASE_INTERVAL_MS = 60_000;
-
-function getCurrentTimeString() {
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const ss = String(now.getSeconds()).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
-}
 
 async function releaseHeldOrders() {
   try {
     const result = await pool.query(
       `SELECT t.uuid, t.merchant_id, t.customer_name, m.business_name,
-              m.opening_time, m.closing_time
+              m.opening_time, m.closing_time, m.timezone
        FROM odofy_trips t
        JOIN odofy_merchants m ON t.merchant_id = m.uuid
        WHERE t.status = 'HOLD_UNTIL_OPENING'`
     );
 
-    const currentTime = getCurrentTimeString();
-
     for (const row of result.rows) {
       const openingTime = row.opening_time || '08:00:00';
       const closingTime = row.closing_time || '22:00:00';
+      const timezone = row.timezone || 'America/Chicago';
 
-      if (currentTime >= openingTime && currentTime <= closingTime) {
+      if (isMerchantOpen(openingTime, closingTime, timezone)) {
         await pool.query(
           `UPDATE odofy_trips SET status = 'PENDING_PICKUP' WHERE uuid = $1`,
           [row.uuid]

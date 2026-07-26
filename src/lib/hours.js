@@ -1,11 +1,13 @@
-function isMerchantOpen(openingTime, closingTime) {
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const currentTime = `${hours}:${minutes}:${seconds}`;
+function isMerchantOpen(openingTime, closingTime, timezone) {
+  const timeString = new Date().toLocaleTimeString('en-US', {
+    timeZone: timezone || 'America/Chicago',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 
-  return currentTime >= openingTime && currentTime <= closingTime;
+  return timeString >= openingTime && timeString <= closingTime;
 }
 
 function formatTime(timeStr) {
