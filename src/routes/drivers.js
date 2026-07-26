@@ -116,6 +116,54 @@ router.post('/register', (req, res, next) => {
   }
 });
 
+router.get('/earnings', authenticateDriver, async (req, res) => {
+  try {
+    const driverId = req.driver.uuid;
+    const result = await pool.query(
+      `SELECT uuid, customer_name, delivery_address, driver_payout, driver_tip_allocation,
+              batch_id, created_at, status
+       FROM odofy_trips
+       WHERE driver_id = $1 AND status = 'DELIVERED'
+       ORDER BY created_at DESC`,
+      [driverId]
+    );
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Driver earnings error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/notifications', authenticateDriver, async (req, res) => {
+  try {
+    const driverId = req.driver.uuid;
+    const result = await pool.query(
+      'SELECT * FROM odofy_notifications WHERE driver_id = $1 ORDER BY created_at DESC',
+      [driverId]
+    );
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Driver notifications error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/profile', authenticateDriver, async (req, res) => {
+  try {
+    const { uuid, first_name, last_name, phone_number, email, status,
+            profile_photo_url, license_photo_url, insurance_proof_url,
+            vehicle_make_model, created_at } = req.driver;
+    return res.status(200).json({
+      uuid, first_name, last_name, phone_number, email, status,
+      profile_photo_url, license_photo_url, insurance_proof_url,
+      vehicle_make_model, created_at
+    });
+  } catch (err) {
+    console.error('Driver profile error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/location', authenticateDriver, async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
