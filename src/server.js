@@ -10,6 +10,7 @@ const tripsRoutes = require('./routes/trips');
 const driversRoutes = require('./routes/drivers');
 const merchantsRoutes = require('./routes/merchants');
 const adminRoutes = require('./routes/admin');
+const { startHoldReleaser } = require('./services/holdReleaser');
 
 const app = express();
 
@@ -41,5 +42,6 @@ if (require.main === module) {
   const port = process.env.PORT || 3001;
   app.listen(port, () => {
     console.log(`Odofy backend listening on port ${port}`);
+    startHoldReleaser();
   });
 }

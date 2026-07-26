@@ -4,6 +4,7 @@ const { authenticateDriver, authenticateMerchant } = require('../middleware/auth
 const { haversineDistance } = require('../lib/haversine');
 const { geocodeAddress } = require('../lib/geocode');
 const { sendSms } = require('../lib/sms');
+const { isMerchantOpen, formatTime } = require('../lib/hours');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 
@@ -45,8 +46,23 @@ router.post('/manual', authenticateMerchant, async (req, res) => {
     );
 
     const tripId = uuidv4();
-    const tripStatus =
-      distance > DELIVERY_RADIUS_MILES ? 'REJECTED' : 'PENDING_PICKUP';
+    let tripStatus;
+
+    if (distance > DELIVERY_RADIUS_MILES) {
+      tripStatus = 'REJECTED';
+    } else {
+      const openingTime = merchant.opening_time || '08:00:00';
+      const closingTime = merchant.closing_time || '22:00:00';
+
+      if (isMerchantOpen(openingTime, closingTime)) {
+        tripStatus = 'PENDING_PICKUP';
+      } else {
+        tripStatus = 'HOLD_UNTIL_OPENING';
+        console.log(
+          `Held order for merchant ${merchant.business_name} until opening at ${formatTime(openingTime)}`
+        );
+      }
+    }
 
     const result = await pool.query(
       `INSERT INTO odofy_trips
