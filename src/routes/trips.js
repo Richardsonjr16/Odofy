@@ -93,6 +93,7 @@ router.get('/available', authenticateDriver, async (req, res) => {
 
     const driver = req.driver;
     const isStudent = driver.email && driver.email.toLowerCase().endsWith('.edu');
+    const now = Date.now();
 
     let result;
     if (isStudent) {
@@ -101,14 +102,27 @@ router.get('/available', authenticateDriver, async (req, res) => {
         ['PENDING_PICKUP']
       );
     } else {
-      const cutoffTime = new Date(Date.now() - 120000).toISOString();
+      const cutoffTime = new Date(now - 120000).toISOString();
       result = await pool.query(
         'SELECT * FROM odofy_trips WHERE status = $1 AND created_at <= $2 ORDER BY created_at ASC',
         ['PENDING_PICKUP', cutoffTime]
       );
     }
 
-    return res.status(200).json(result.rows);
+    const trips = result.rows.map((trip) => {
+      const tripAgeMs = now - new Date(trip.created_at).getTime();
+      const tripAgeSec = Math.floor(tripAgeMs / 1000);
+      const enriched = { ...trip, cargo_type: '📦 Light Retail Cargo' };
+
+      if (!isStudent && tripAgeSec >= 120 && tripAgeSec < 180) {
+        const countdownRemaining = Math.max(0, 180 - tripAgeSec);
+        enriched.countdown_seconds_remaining = Math.min(60, countdownRemaining);
+      }
+
+      return enriched;
+    });
+
+    return res.status(200).json(trips);
   } catch (err) {
     console.error('Available trips error:', err);
     return res.status(500).json({ error: 'Internal server error' });
