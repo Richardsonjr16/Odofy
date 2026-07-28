@@ -175,4 +175,43 @@ router.get('/analytics', authenticateAdmin, async (_req, res) => {
   }
 });
 
+router.get('/taxes', authenticateAdmin, async (_req, res) => {
+  try {
+    const driverResult = await pool.query(`
+      SELECT
+        d.uuid AS driver_id,
+        d.first_name,
+        d.last_name,
+        d.email,
+        COALESCE(SUM(t.driver_payout), 0) AS total_base_fares,
+        COALESCE(SUM(t.driver_tip_allocation), 0) AS total_tips_bonus,
+        COALESCE(SUM(t.driver_payout), 0) + COALESCE(SUM(t.driver_tip_allocation), 0) AS gross_earnings
+      FROM odofy_drivers d
+      LEFT JOIN odofy_trips t ON t.driver_id = d.uuid AND t.status = 'DELIVERED'
+        AND EXTRACT(YEAR FROM t.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+      GROUP BY d.uuid, d.first_name, d.last_name, d.email
+      ORDER BY gross_earnings DESC
+    `);
+
+    const fleetResult = await pool.query(`
+      SELECT
+        COALESCE(SUM(driver_payout + COALESCE(driver_tip_allocation, 0)), 0) AS total_fleet_earnings,
+        COUNT(DISTINCT driver_id) FILTER (WHERE driver_id IS NOT NULL
+          AND (driver_payout + COALESCE(driver_tip_allocation, 0)) >= 600) AS drivers_over_600
+      FROM odofy_trips
+      WHERE status = 'DELIVERED'
+        AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+    `);
+
+    return res.status(200).json({
+      drivers: driverResult.rows,
+      total_fleet_earnings: parseFloat(fleetResult.rows[0].total_fleet_earnings),
+      drivers_over_600: parseInt(fleetResult.rows[0].drivers_over_600),
+    });
+  } catch (err) {
+    console.error('Tax ledger error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
