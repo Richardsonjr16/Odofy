@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-msu-maroon: #5E0009;
+  --color-charcoal: #333333;
+}
+
+@layer base {
+  html,
+  body {
+    @apply bg-white text-charcoal antialiased dark:bg-gray-950 dark:text-gray-100;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@utility animate-slide-up {
+  animation: slide-up 0.3s ease-out forwards;
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@utility animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
