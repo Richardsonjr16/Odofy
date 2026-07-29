@@ -185,6 +185,21 @@ router.post('/feedback', authenticateDriver, async (req, res) => {
   }
 });
 
+router.get('/online', async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM odofy_drivers
+       WHERE status = 'ACTIVE'
+         AND location_updated_at > NOW() - INTERVAL '30 minutes'`
+    );
+    return res.status(200).json({ count: result.rows[0].count });
+  } catch (err) {
+    console.error('Online drivers count error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/location', authenticateDriver, async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
