@@ -3,12 +3,35 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import DriverFooter from "../components/DriverFooter";
 import DriverMap from "../components/DriverMap";
 
+// ── COLLEGIATE MARKET THEME DIRECTORY ──
+const marketThemeDirectory: Record<string, { primary: string; secondary: string }> = {
+  springfield: { primary: "#5E0009", secondary: "#FFFFFF" }, // Missouri State
+  columbia:    { primary: "#000000", secondary: "#FDB719" }, // Mizzou
+  columbus:    { primary: "#ba0c2f", secondary: "#a7b1b7" }, // Ohio State
+};
+
+function darkenColor(hex: string, factor: number = 0.18): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const d = (c: number) => Math.round(c * factor).toString(16).padStart(2, "0");
+  return `#${d(r)}${d(g)}${d(b)}`;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 interface DriverProfile {
   uuid: string;
   first_name: string;
   last_name: string;
   email: string;
   phone: string;
+  marketHub?: string;
 }
 
 interface AvailableTrip {
@@ -22,6 +45,9 @@ interface AvailableTrip {
   driver_tip_allocation: string;
   merchant_id: string;
   created_at: string;
+  order_number?: string;
+  total_stops?: number;
+  cross_stack_bonus?: number;
 }
 
 interface PickupItem {
@@ -43,7 +69,6 @@ const SPRINGFIELD_DROPOFFS = [
   "1111 E Elm St, Springfield, MO 65806 (Downtown Core)",
 ];
 
-const MAROON = "#5E0009";
 const PLACEHOLDER_IMG =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23f3f4f6'/%3E%3Crect x='14' y='20' width='36' height='28' rx='3' fill='%23d1d5db' stroke='%239ca3af' stroke-width='1.5'/%3E%3Cpath d='M14 22 L32 14 L50 22' fill='none' stroke='%239ca3af' stroke-width='1.5'/%3E%3Cpath d='M32 14 L32 44' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-dasharray='3,3'/%3E%3C/svg%3E";
 
@@ -118,10 +143,14 @@ function SlideTrack({
   label,
   onSlideComplete,
   disabled,
+  trackColor = "#5E0009",
+  thumbColor = "#0A192F",
 }: {
   label: string;
   onSlideComplete: () => void;
   disabled?: boolean;
+  trackColor?: string;
+  thumbColor?: string;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
@@ -185,7 +214,8 @@ function SlideTrack({
   return (
     <div
       ref={trackRef}
-      className="w-full bg-[#5E0009] text-white font-bold text-sm rounded-full py-4 relative flex items-center justify-center select-none overflow-hidden cursor-pointer touch-none"
+      className="w-full text-white font-bold text-sm rounded-full py-4 relative flex items-center justify-center select-none overflow-hidden cursor-pointer touch-none"
+      style={{ backgroundColor: trackColor }}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -196,8 +226,8 @@ function SlideTrack({
     >
       <span className="uppercase tracking-wider text-xs">{label}</span>
       <div
-        className="w-12 h-12 bg-[#0A192F] rounded-full absolute left-1 flex items-center justify-center shadow-md transition-transform duration-75"
-        style={{ transform: `translateX(${thumbLeft}%)` }}
+        className="w-12 h-12 rounded-full absolute left-1 flex items-center justify-center shadow-md transition-transform duration-75"
+        style={{ backgroundColor: thumbColor, transform: `translateX(${thumbLeft}%)` }}
       >
         <svg
           width="16"
@@ -278,7 +308,20 @@ function DashboardPage() {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [pickupItems, setPickupItems] = useState<PickupItem[]>([]);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
-  const [totalStops] = useState(2);
+  const [showArrivalError, setShowArrivalError] = useState(false);
+  const [arrivalSlideKey, setArrivalSlideKey] = useState(0);
+  // ── Derived from claimed/selected trip data ──
+  const totalStops = useMemo(() => {
+    if (claimedTrip?.total_stops) return claimedTrip.total_stops;
+    if (targetedTrip?.total_stops) return targetedTrip.total_stops;
+    return 2;
+  }, [claimedTrip, targetedTrip]);
+
+  const crossStackBonus = useMemo(() => {
+    if (claimedTrip?.cross_stack_bonus) return claimedTrip.cross_stack_bonus;
+    if (targetedTrip?.cross_stack_bonus) return targetedTrip.cross_stack_bonus;
+    return 0;
+  }, [claimedTrip, targetedTrip]);
 
   // ── FEEDBACK STATE ──
   const [showFeedbackView, setShowFeedbackView] = useState(false);
@@ -288,6 +331,13 @@ function DashboardPage() {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
 
   const presetReasons = ['Long Store Wait', 'Hard to Find Door', 'Poor Merchant Packaging', 'Wrong Access Code', 'App/GPS Issue'];
+
+  // ── Collegiate theme ──
+  const activeCityHub = (profile?.marketHub || "springfield").toLowerCase();
+  const currentMarketColors = marketThemeDirectory[activeCityHub] || marketThemeDirectory["springfield"];
+  const darkPrimary = darkenColor(currentMarketColors.primary);
+  const primaryHover = darkenColor(currentMarketColors.primary, 0.78);
+  const darkHover = darkenColor(darkPrimary, 2.5);
 
   // ── Persist scheduling state across route navigations ──
   useEffect(() => {
@@ -343,14 +393,14 @@ function DashboardPage() {
       lat: Number(trip.dest_latitude),
       lng: Number(trip.dest_longitude),
       label: "📍",
-      color: MAROON,
+      color: currentMarketColors.primary,
     }));
     if (claimedTrip && activeDeliveryStep === "EN_ROUTE") {
       markers.push({
         lat: Number(claimedTrip.dest_latitude),
         lng: Number(claimedTrip.dest_longitude),
         label: "🎯",
-        color: "#0A192F",
+        color: darkPrimary,
       });
     }
     return markers;
@@ -630,7 +680,12 @@ function DashboardPage() {
 
   // ── Slide to confirm pickup complete ──
   const handleSlideConfirmPickupComplete = () => {
-    setShowSeparationModal(true);
+    if (totalStops > 2) {
+      setShowSeparationModal(true);
+    } else {
+      setActiveDeliveryStep("EN_ROUTE");
+      setCheckedItems(new Set());
+    }
   };
 
   // ── Slide to confirm separation complete ──
@@ -642,7 +697,6 @@ function DashboardPage() {
 
   // ── Slide to confirm arrival complete ──
   const handleSlideArrivalComplete = () => {
-    // Check geofence
     if (currentLocation && claimedTrip) {
       const dist = haversineDistance(
         currentLocation.lat,
@@ -652,13 +706,11 @@ function DashboardPage() {
       );
       const distFeet = dist * 5280;
       if (distFeet > 150) {
-        alert(
-          `You are ${Math.round(distFeet)}ft away. Please get within 150ft of the delivery address.`
-        );
+        setShowArrivalError(true);
+        setArrivalSlideKey((prev) => prev + 1);
         return;
       }
     }
-    // Complete delivery — show feedback
     setActiveDeliveryStep("IDLE");
     setShowFeedbackView(true);
   };
@@ -709,7 +761,7 @@ function DashboardPage() {
           <div className="text-center mb-8">
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ backgroundColor: MAROON }}
+              style={{ backgroundColor: currentMarketColors.primary }}
             >
               <span className="text-white text-2xl font-extrabold">O</span>
             </div>
@@ -720,7 +772,7 @@ function DashboardPage() {
               Driver Dashboard
             </p>
           </div>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4" style={{ "--odofy-p": currentMarketColors.primary } as React.CSSProperties}>
             <div>
               <label
                 htmlFor="driverToken"
@@ -734,15 +786,15 @@ function DashboardPage() {
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
                 placeholder="Driver auth token"
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5E0009]/20 focus:border-[#5E0009] transition-shadow shadow-sm"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--odofy-p)]/20 focus:border-[var(--odofy-p)] transition-shadow shadow-sm"
                 autoFocus
               />
             </div>
             <button
               type="submit"
               disabled={!tokenInput.trim()}
-              className="w-full rounded-xl font-semibold text-white text-sm py-3.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-[#5E0009]/20 active:scale-[0.98]"
-              style={{ backgroundColor: MAROON }}
+              className="w-full rounded-xl font-semibold text-white text-sm py-3.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98]"
+              style={{ backgroundColor: currentMarketColors.primary, boxShadow: `0 4px 6px -1px ${hexToRgba(currentMarketColors.primary, 0.2)}` }}
             >
               Sign In
             </button>
@@ -759,143 +811,137 @@ function DashboardPage() {
   if (activeDeliveryStep === "EN_ROUTE" && claimedTrip) {
     const customerLat = Number(claimedTrip.dest_latitude);
     const customerLng = Number(claimedTrip.dest_longitude);
-    const etaMins = 8; // placeholder; would come from Directions API
+    const tripDistance = currentLocation
+      ? haversineDistance(currentLocation.lat, currentLocation.lng, customerLat, customerLng)
+      : 4.3;
+    const estimatedMins = Math.round(tripDistance * 3);
+    const estimatedArrivalTime = (() => {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + estimatedMins);
+      const h = now.getHours();
+      const m = now.getMinutes();
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+    })();
+    const orderNumber = claimedTrip.order_number || claimedTrip.uuid.slice(0, 6);
+    const customerName = claimedTrip.customer_name || "Customer";
+    const deliveryAddress = claimedTrip.delivery_address || SPRINGFIELD_DROPOFFS[0];
 
     return (
-      <div className="max-w-md mx-auto min-h-screen bg-[#0A192F] flex flex-col font-sans relative overflow-hidden">
-        {/* ── Navy header bar ── */}
-        <div className="w-full bg-[#0A192F] px-4 py-3 flex items-center justify-between z-30 border-b border-white/10">
+      <div className="max-w-md mx-auto min-h-screen flex flex-col font-sans relative overflow-hidden bg-white">
+        {/* ── Header stripe ── */}
+        <div className="w-full px-4 py-3 flex items-center justify-between z-30" style={{ backgroundColor: currentMarketColors.primary }}>
           <button
             onClick={() => {
               setActiveDeliveryStep("MINIMIZED");
             }}
-            className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+            className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors text-lg font-bold"
+            aria-label="Minimize"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            >
-              <path d="M18 6L6 18" />
-              <path d="M6 6l12 12" />
-            </svg>
+            ✕
           </button>
           <div className="text-center">
             <p className="text-white font-bold text-sm">
-              Stop #{currentStopIndex + 1} for Order #{(claimedTrip.uuid || "000").slice(0, 6)}
-            </p>
-            <p className="text-white/50 text-[10px] tracking-wide uppercase">
-              Active delivery
+              Stop #{currentStopIndex + 1} for Order {orderNumber}
             </p>
           </div>
-          <button className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-          </button>
+          <div className="w-9 h-9" />
         </div>
 
-        {/* ── Satellite map area (25vh) ── */}
-        <div className="w-full h-[25vh] relative bg-gray-700">
+        {/* ── Full-bleed map area ── */}
+        <div className="w-full flex-1 relative bg-gray-200 min-h-0">
           <DriverMap
             markers={[
               {
                 lat: customerLat,
                 lng: customerLng,
                 label: "📍",
-                color: MAROON,
+                color: currentMarketColors.primary,
               },
             ]}
             currentLocation={currentLocation}
           />
           {/* Pin overlay */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full z-20 pointer-events-none">
-            <div className="w-8 h-8 bg-[#5E0009] rounded-full flex items-center justify-center shadow-lg border-2 border-white">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="white"
-              >
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-white" style={{ backgroundColor: currentMarketColors.primary }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
               </svg>
             </div>
           </div>
         </div>
 
-        {/* ── Delivery info panel ── */}
-        <div className="flex-1 bg-white rounded-t-[28px] -mt-4 px-4 pt-6 pb-4 overflow-y-auto flex flex-col gap-4 z-20">
+        {/* ── Bottom info panel ── */}
+        <div className="bg-white rounded-t-[28px] -mt-4 px-4 pt-6 pb-4 flex flex-col gap-4 z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
           {/* ETA row */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-3xl font-extrabold text-gray-900">
-                {etaMins} min
+              <p className="text-2xl font-extrabold text-gray-900">
+                ~{estimatedMins} min drop-off
               </p>
-              <p className="text-xs font-medium text-gray-500">ETA</p>
+              <p className="text-xs font-medium text-gray-400">
+                Estimated arrival {estimatedArrivalTime}
+              </p>
             </div>
-            <div className="bg-[#0A192F] text-white text-xs font-bold px-3 py-1.5 rounded-full">
+            <div className="text-white text-xs font-bold px-3 py-1.5 rounded-full" style={{ backgroundColor: currentMarketColors.primary }}>
               {currentLocation && claimedTrip
-                ? `${(haversineDistance(currentLocation.lat, currentLocation.lng, customerLat, customerLng) * 5280).toFixed(0)} ft away`
-                : "Calculating..."}
+                ? `${(tripDistance * 5280).toFixed(0)} ft`
+                : "..."}
             </div>
           </div>
 
-          {/* Customer info */}
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">
-              {claimedTrip.customer_name || "Customer"}
-            </h3>
-            <p className="text-sm font-medium text-gray-500 mt-0.5">
-              {claimedTrip.delivery_address ||
-                SPRINGFIELD_DROPOFFS[0]}
+          {/* Customer row */}
+          <div className="flex flex-col">
+            <p className="text-base font-bold text-gray-900">
+              {customerName}
+            </p>
+            <p className="text-sm font-medium text-gray-500">
+              {deliveryAddress}
             </p>
           </div>
 
           {/* Cargo pills */}
-          <div className="flex flex-wrap gap-2">
-            <span className="bg-[#E6F4EA] text-[#137333] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-              Multi-trip incentive
-            </span>
-            <span className="bg-[#E8F0FE] text-[#185ABC] px-3 py-1 rounded-full text-xs font-bold">
-              Batch bonus +$3.00
-            </span>
-          </div>
+          {crossStackBonus > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <span className="bg-[#E6F4EA] text-[#137333] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                Multi-trip incentive: +${crossStackBonus.toFixed(2)} cross-stack bonus included
+              </span>
+            </div>
+          )}
 
-          {/* Action buttons */}
-          <div className="flex gap-3">
-            <a
-              href={`tel:${claimedTrip.customer_phone || ""}`}
-              className="flex-1 py-3.5 bg-[#0A192F] text-white font-bold text-sm rounded-full text-center shadow-md hover:bg-[#152A4A] transition-colors"
+          {/* Circular action buttons */}
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={() => window.open(`tel:${claimedTrip.customer_phone || ""}`, "_self")}
+              className="w-16 h-16 rounded-full flex flex-col items-center justify-center text-white font-bold text-[10px] shadow-md transition-transform active:scale-95"
+              style={{ backgroundColor: darkPrimary }}
             >
-              📞 CONTACT
-            </a>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" className="mb-0.5">
+                <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+              </svg>
+              CONTACT
+            </button>
             <button
               onClick={handleNavigate}
-              className="flex-1 py-3.5 bg-[#5E0009] text-white font-bold text-sm rounded-full text-center shadow-md shadow-[#5E0009]/10 hover:bg-[#4A0007] transition-colors"
+              className="w-16 h-16 rounded-full flex flex-col items-center justify-center text-white font-bold text-[10px] shadow-md transition-transform active:scale-95"
+              style={{ backgroundColor: currentMarketColors.primary }}
             >
-              🗺️ NAVIGATE
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mb-0.5">
+                <polygon points="3 11 22 2 13 21 11 13 3 11" />
+              </svg>
+              NAVIGATE
             </button>
           </div>
 
           {/* Slide to confirm arrival */}
-          <div className="mt-2">
+          <div className="mt-1">
             <SlideTrack
+              key={arrivalSlideKey}
               label="SLIDE TO CONFIRM ARRIVAL"
               onSlideComplete={handleSlideArrivalComplete}
+              trackColor={currentMarketColors.primary}
+              thumbColor={darkPrimary}
             />
             <p className="text-[10px] font-medium text-gray-400 text-center mt-2">
               Must be within 150ft of delivery address
@@ -957,7 +1003,8 @@ function DashboardPage() {
             </p>
             <button
               onClick={handleGotIt}
-              className="w-full py-4 bg-[#5E0009] text-white font-bold text-sm rounded-full text-center shadow-md shadow-[#5E0009]/10 hover:bg-[#4A0007] transition-all uppercase tracking-wider mt-4 cursor-pointer"
+              className="w-full py-4 text-white font-bold text-sm rounded-full text-center shadow-md transition-all uppercase tracking-wider mt-4 cursor-pointer"
+              style={{ backgroundColor: currentMarketColors.primary, boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}` }}
             >
               GOT IT
             </button>
@@ -1052,10 +1099,10 @@ function DashboardPage() {
                     className="w-full bg-white border-b border-gray-100 p-4 flex gap-4 items-start"
                   >
                     <img
-                      src={item.image_url || "/assets/placeholder-package.svg"}
+                      src={item.image_url || PLACEHOLDER_IMG}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          "/assets/placeholder-package.svg";
+                          PLACEHOLDER_IMG;
                       }}
                       alt={item.title || item.name || "Package"}
                       className="w-16 h-16 rounded-xl bg-gray-50 flex-shrink-0 object-contain p-1 border border-gray-100/50 shadow-sm"
@@ -1078,9 +1125,10 @@ function DashboardPage() {
                       }}
                       className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors flex-shrink-0 ${
                         checkedItems.has(String(idx))
-                          ? "bg-[#5E0009] border-[#5E0009]"
+                          ? ""
                           : "border-gray-200"
                       }`}
+                      style={checkedItems.has(String(idx)) ? { backgroundColor: currentMarketColors.primary, borderColor: currentMarketColors.primary } : undefined}
                     >
                       {checkedItems.has(String(idx)) && (
                         <span className="text-white text-xs">✓</span>
@@ -1096,6 +1144,8 @@ function DashboardPage() {
                   label="SLIDE TO CONFIRM PICKUP & SORT"
                   onSlideComplete={handleSlideConfirmPickupComplete}
                   disabled={checkedItems.size < pickupItems.length}
+                  trackColor={currentMarketColors.primary}
+                  thumbColor={darkPrimary}
                 />
                 {checkedItems.size < pickupItems.length && (
                   <p className="text-[10px] font-medium text-gray-400 text-center mt-2">
@@ -1114,6 +1164,8 @@ function DashboardPage() {
                 <SlideTrack
                   label="SLIDE TO START TRIP"
                   onSlideComplete={handleSlideToStartComplete}
+                  trackColor={currentMarketColors.primary}
+                  thumbColor={darkPrimary}
                 />
               </div>
               <p className="text-xs font-medium text-gray-400 text-center">
@@ -1193,11 +1245,13 @@ function DashboardPage() {
                           </span>
                         </div>
                         <p className="text-sm font-semibold text-gray-600 tracking-tight">
-                          2 stops • 4.3 miles • 25 mins
+                          {targetedTrip?.total_stops || 2} stops • 4.3 miles • 25 mins
                         </p>
-                        <span className="bg-[#E6F4EA] text-[#137333] px-2.5 py-0.5 rounded-md text-xs font-bold w-fit uppercase tracking-wider">
-                          Multi-trip incentive
-                        </span>
+                        {targetedTrip?.cross_stack_bonus && targetedTrip.cross_stack_bonus > 0 ? (
+                          <span className="bg-[#E6F4EA] text-[#137333] px-2.5 py-0.5 rounded-md text-xs font-bold w-fit uppercase tracking-wider">
+                            Multi-trip incentive: +${targetedTrip.cross_stack_bonus.toFixed(2)} cross-stack bonus
+                          </span>
+                        ) : null}
                         <p className="text-sm font-semibold text-gray-800 mt-1">
                           🏪 ASAP • Boutique Retail Pickup • Odofy Axis
                         </p>
@@ -1217,7 +1271,8 @@ function DashboardPage() {
                               handleTargetedAccept(targetedTrip.uuid)
                             }
                             disabled={isApproving}
-                            className="flex-1 py-3 bg-[#5E0009] text-white font-bold text-sm rounded-full text-center shadow-md shadow-[#5E0009]/10 hover:bg-[#4A0007] transition-colors disabled:opacity-60"
+                            className="flex-1 py-3 text-white font-bold text-sm rounded-full text-center shadow-md transition-colors disabled:opacity-60"
+                            style={{ backgroundColor: currentMarketColors.primary, boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}` }}
                           >
                             {isApproving ? (
                               <span className="inline-flex items-center gap-1.5">
@@ -1248,7 +1303,7 @@ function DashboardPage() {
 
               {loading && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-[#5E0009] border-t-transparent" />
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-t-transparent" style={{ borderColor: currentMarketColors.primary }} />
                   <p className="mt-3 text-sm text-gray-400 font-medium">
                     Scanning network for available trips…
                   </p>
@@ -1260,7 +1315,8 @@ function DashboardPage() {
                 <>
                   <button
                     onClick={() => setIsTimeDrawerOpen(true)}
-                    className="w-full py-4 bg-[#5E0009] text-white font-bold text-lg rounded-full shadow-lg shadow-[#5E0009]/20 tracking-wide transition-all active:scale-[0.98] mb-6"
+                    className="w-full py-4 text-white font-bold text-lg rounded-full shadow-lg tracking-wide transition-all active:scale-[0.98] mb-6"
+                    style={{ backgroundColor: currentMarketColors.primary, boxShadow: `0 4px 6px ${hexToRgba(currentMarketColors.primary, 0.2)}` }}
                   >
                     ODOFY NOW
                   </button>
@@ -1318,11 +1374,13 @@ function DashboardPage() {
                               </span>
                             </div>
                             <p className="text-sm font-semibold text-gray-600 tracking-tight">
-                              2 stops • 4.3 miles • 25 mins
+                              {trip.total_stops || 2} stops • 4.3 miles • 25 mins
                             </p>
-                            <span className="bg-[#E6F4EA] text-[#137333] px-2.5 py-0.5 rounded-md text-xs font-bold w-fit uppercase tracking-wider">
-                              Multi-trip incentive
-                            </span>
+                            {trip.cross_stack_bonus && trip.cross_stack_bonus > 0 ? (
+                              <span className="bg-[#E6F4EA] text-[#137333] px-2.5 py-0.5 rounded-md text-xs font-bold w-fit uppercase tracking-wider">
+                                Multi-trip incentive: +${trip.cross_stack_bonus.toFixed(2)} cross-stack bonus
+                              </span>
+                            ) : null}
                             <p className="text-sm font-semibold text-gray-800 mt-1">
                               🏪 ASAP • Boutique Retail Pickup • Odofy Axis
                             </p>
@@ -1340,7 +1398,8 @@ function DashboardPage() {
                               <button
                                 onClick={() => handleApprove(trip.uuid)}
                                 disabled={isApproving}
-                                className="flex-1 py-3 bg-[#5E0009] text-white font-bold text-sm rounded-full text-center shadow-md shadow-[#5E0009]/10 hover:bg-[#4A0007] transition-colors disabled:opacity-60"
+                                className="flex-1 py-3 text-white font-bold text-sm rounded-full text-center shadow-md transition-colors disabled:opacity-60"
+                                style={{ backgroundColor: currentMarketColors.primary, boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}` }}
                               >
                                 {isApproving ? (
                                   <span className="inline-flex items-center gap-1.5">
@@ -1389,12 +1448,13 @@ function DashboardPage() {
               </p>
               {/* Stop counter */}
               <p className="text-xs font-semibold text-gray-500 mt-2">
-                👤 1 drop-off
+                👤 {totalStops} drop-off{totalStops !== 1 ? "s" : ""}
               </p>
               {/* RESUME TRIP button */}
               <button
                 onClick={() => setActiveDeliveryStep("EN_ROUTE")}
-                className="w-full py-4 bg-[#2A66FF] text-white font-bold text-sm rounded-full text-center shadow-md uppercase tracking-wider mt-4 cursor-pointer hover:bg-[#1E4ED2] transition-colors"
+                className="w-full py-4 text-white font-bold text-sm rounded-full text-center shadow-md uppercase tracking-wider mt-4 cursor-pointer transition-colors"
+                style={{ backgroundColor: currentMarketColors.primary }}
               >
                 RESUME TRIP
               </button>
@@ -1404,7 +1464,7 @@ function DashboardPage() {
 
         {/* ── CONDITIONAL EXPIRY ALERT BANNER ── */}
         {showExpiryAlert && (
-          <div className="fixed bottom-20 left-0 right-0 max-w-md mx-auto w-full bg-[#0A192F] text-white text-xs font-medium px-4 py-3 leading-snug flex items-center border-t border-white/10 z-30 animate-slide-up">
+          <div className="fixed bottom-20 left-0 right-0 max-w-md mx-auto w-full text-white text-xs font-medium px-4 py-3 leading-snug flex items-center border-t border-white/10 z-30 animate-slide-up" style={{ backgroundColor: darkPrimary }}>
             <span>
               Some offers are no longer available. They either expired, another
               driver accepted, or orders changed.
@@ -1415,10 +1475,31 @@ function DashboardPage() {
         <DriverFooter />
       </div>
 
+      {/* ── ARRIVAL ERROR MODAL ── */}
+      {showArrivalError && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-xl flex flex-col items-center gap-4 animate-slide-up">
+            <span className="text-4xl">📍</span>
+            <h2 className="text-xl font-bold text-gray-900">Too Far Away</h2>
+            <p className="text-sm font-medium text-gray-600 leading-relaxed">
+              You must be within 150 feet of the delivery address to confirm
+              arrival.
+            </p>
+            <button
+              onClick={() => setShowArrivalError(false)}
+              className="w-full py-3.5 text-white font-bold text-sm rounded-full shadow-md transition-all uppercase tracking-wider"
+              style={{ backgroundColor: currentMarketColors.primary }}
+            >
+              GOT IT
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── VEHICLE SEPARATION MODAL ── */}
       {showSeparationModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center border-2 border-[#5E0009] shadow-xl flex flex-col items-center gap-4 animate-slide-up">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-xl flex flex-col items-center gap-4 animate-slide-up" style={{ borderColor: currentMarketColors.primary, borderWidth: 2 }}>
             <span className="text-4xl">⚠️</span>
             <h2 className="text-xl font-bold text-gray-900">
               Separate Batch Orders
@@ -1432,6 +1513,8 @@ function DashboardPage() {
               <SlideTrack
                 label="SLIDE TO CONFIRM SEPARATION"
                 onSlideComplete={handleSlideSeparationComplete}
+                trackColor={currentMarketColors.primary}
+                thumbColor={darkPrimary}
               />
             </div>
           </div>
@@ -1449,7 +1532,7 @@ function DashboardPage() {
             <div className="flex items-center gap-3 mb-6">
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "#5E0009" }}
+                style={{ backgroundColor: currentMarketColors.primary }}
               >
                 <svg
                   width="18"
@@ -1483,13 +1566,13 @@ function DashboardPage() {
                     onClick={() => setOfferEndTime(slot.value)}
                     className="flex items-center justify-center py-4 cursor-pointer transition-colors mx-2 rounded-xl"
                     style={{
-                      backgroundColor: isSelected ? "#FDF2F4" : "transparent",
+                      backgroundColor: isSelected ? hexToRgba(currentMarketColors.primary, 0.08) : "transparent",
                     }}
                   >
                     <span
                       className="text-lg font-bold transition-all"
                       style={{
-                        color: isSelected ? "#5E0009" : "#6B7280",
+                        color: isSelected ? currentMarketColors.primary : "#6B7280",
                       }}
                     >
                       {slot.label}
@@ -1518,7 +1601,7 @@ function DashboardPage() {
               }}
               disabled={!offerEndTime}
               className="w-full py-3.5 font-bold text-sm rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ backgroundColor: "#5E0009", color: "white" }}
+              style={{ backgroundColor: currentMarketColors.primary, color: "white" }}
             >
               TURN ON
             </button>
@@ -1530,7 +1613,7 @@ function DashboardPage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           {!showThumbsDown ? (
             /* ── STEP 1: Thumbs-up / Thumbs-down ── */
-            <div className="bg-[#0A192F] rounded-[28px] p-6 max-w-sm w-full text-center shadow-xl flex flex-col items-center gap-5 animate-slide-up">
+            <div className="rounded-[28px] p-6 max-w-sm w-full text-center shadow-xl flex flex-col items-center gap-5 animate-slide-up" style={{ backgroundColor: darkPrimary }}>
               <p className="text-white text-lg font-bold mt-2">
                 How was your delivery?
               </p>
@@ -1551,7 +1634,11 @@ function DashboardPage() {
                 </button>
                 <button
                   onClick={() => setShowThumbsDown(true)}
-                  className="w-20 h-20 rounded-full bg-[#5E0009]/40 border-2 border-[#5E0009]/60 flex items-center justify-center hover:bg-[#5E0009]/60 hover:border-[#5E0009] transition-all active:scale-95"
+                  className="w-20 h-20 rounded-full border-2 flex items-center justify-center transition-all active:scale-95"
+                  style={{
+                    backgroundColor: hexToRgba(currentMarketColors.primary, 0.4),
+                    borderColor: hexToRgba(currentMarketColors.primary, 0.6),
+                  }}
                 >
                   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E74C3C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" transform="rotate(180)">
                     <path d="M7 22V11M2 13v7a2 2 0 002 2h4.5l3.84 2.88a1 1 0 00.6.18H17a2 2 0 002-2l2-9a2 2 0 00-2-2h-5.72a2 2 0 01-1.72-1l-1.6-4.8A1.5 1.5 0 0010.5 5h-1A1.5 1.5 0 008 6.5v6.5H4a2 2 0 00-2 2z"/>
@@ -1572,7 +1659,7 @@ function DashboardPage() {
             </div>
           ) : (
             /* ── STEP 2: Thumbs-down detail view ── */
-            <div className="bg-[#0A192F] rounded-[28px] p-6 max-w-sm w-full shadow-xl flex flex-col gap-5 animate-slide-up">
+            <div className="rounded-[28px] p-6 max-w-sm w-full shadow-xl flex flex-col gap-5 animate-slide-up" style={{ backgroundColor: darkPrimary }}>
               <div className="text-center">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E74C3C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto" transform="rotate(180)">
                   <path d="M7 22V11M2 13v7a2 2 0 002 2h4.5l3.84 2.88a1 1 0 00.6.18H17a2 2 0 002-2l2-9a2 2 0 00-2-2h-5.72a2 2 0 01-1.72-1l-1.6-4.8A1.5 1.5 0 0010.5 5h-1A1.5 1.5 0 008 6.5v6.5H4a2 2 0 00-2 2z"/>
@@ -1601,9 +1688,10 @@ function DashboardPage() {
                       }}
                       className={`px-3.5 py-2 rounded-full border text-xs font-semibold cursor-pointer transition-all hover:bg-white/10 select-none ${
                         isActive
-                          ? "bg-[#5E0009] border-[#5E0009] text-white shadow-sm scale-[0.98]"
+                          ? "text-white shadow-sm scale-[0.98]"
                           : "bg-white/5 border-white/30 text-white/80"
                       }`}
+                      style={isActive ? { backgroundColor: currentMarketColors.primary, borderColor: currentMarketColors.primary } : undefined}
                     >
                       {reason}
                     </button>
@@ -1623,7 +1711,8 @@ function DashboardPage() {
               <button
                 onClick={handleSubmitFeedback}
                 disabled={feedbackSubmitting}
-                className="w-full py-3.5 bg-[#5E0009] text-white font-bold text-sm rounded-full text-center shadow-md shadow-[#5E0009]/10 hover:bg-[#4A0007] transition-all disabled:opacity-60 uppercase tracking-wider"
+                className="w-full py-3.5 text-white font-bold text-sm rounded-full text-center shadow-md transition-all disabled:opacity-60 uppercase tracking-wider"
+                style={{ backgroundColor: currentMarketColors.primary, boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}` }}
               >
                 {feedbackSubmitting ? (
                   <span className="inline-flex items-center gap-1.5">
