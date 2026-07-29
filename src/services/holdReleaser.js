@@ -1,4 +1,4 @@
-const pool = require('../db');
+const pool = require('../db.js');
 const { isMerchantOpen } = require('../lib/hours');
 
 const RELEASE_INTERVAL_MS = 60_000;

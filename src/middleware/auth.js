@@ -1,4 +1,4 @@
-const pool = require('../db');
+const pool = require('../db.js');
 
 async function authenticateDriver(req, res, next) {
   const authHeader = req.headers.authorization;

@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env') });
-const pool = require('../db');
+const pool = require('../db.js');
 
 let studentDriver;
 let backupDriver;

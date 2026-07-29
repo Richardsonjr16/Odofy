@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../db');
+const pool = require('../db.js');
 const { sendSms } = require('../lib/sms');
 
 const router = express.Router();

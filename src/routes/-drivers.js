@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const pool = require('../db');
+const pool = require('../db.js');
 const { authenticateDriver } = require('../middleware/auth');
 
 const router = express.Router();
