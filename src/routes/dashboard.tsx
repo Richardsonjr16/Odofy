@@ -238,11 +238,11 @@ function DashboardPage() {
   const [targetedTimer, setTargetedTimer] = useState(60);
   const [onlineDrivers] = useState(3);
   const [offerEndTime, setOfferEndTime] = useState<string | null>(
-    () => sessionStorage.getItem("odofy_offer_end_time") || null
+    () => (typeof window !== "undefined" ? sessionStorage.getItem("odofy_offer_end_time") : null) || null
   );
   const [isTimeDrawerOpen, setIsTimeDrawerOpen] = useState(false);
   const [isOdofyNowActive, setIsOdofyNowActive] = useState(
-    () => sessionStorage.getItem("odofy_now_active") === "true"
+    () => (typeof window !== "undefined" ? sessionStorage.getItem("odofy_now_active") : null) === "true"
   );
   const [showAlertBanner, setShowAlertBanner] = useState(false);
   const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
@@ -1091,7 +1091,6 @@ function DashboardPage() {
             <>
               {activeDeliveryStep !== "MINIMIZED" && (
                 <>
-                  /* ── DEFAULT: Targeted offers + Trip deck ── */
               {/* ── "JUST FOR YOU" TARGETED OFFER ── */}
               {targetedTrip &&
                 (() => {

@@ -1,0 +1,2 @@
+$ bun run start.js
+Odofy site on port 3000 (+ API proxy to 3001)

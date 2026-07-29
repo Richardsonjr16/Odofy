@@ -9,75 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TripsRouteImport } from './routes/trips'
-import { Route as TrackRouteImport } from './routes/track'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as ProfileMenuRouteImport } from './routes/profile-menu'
-import { Route as OrderRouteImport } from './routes/order'
-import { Route as NotificationsRouteImport } from './routes/notifications'
-import { Route as MerchantSignupRouteImport } from './routes/merchant-signup'
-import { Route as MerchantLoginRouteImport } from './routes/merchant-login'
-import { Route as MerchantRouteImport } from './routes/merchant'
-import { Route as EarningsHistoryRouteImport } from './routes/earnings-history'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TOrderIdRouteImport } from './routes/t.$orderId'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as EarningsHistoryRouteImport } from './routes/earnings-history'
+import { Route as MerchantRouteImport } from './routes/merchant'
+import { Route as MerchantLoginRouteImport } from './routes/merchant-login'
+import { Route as MerchantSignupRouteImport } from './routes/merchant-signup'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as OrderRouteImport } from './routes/order'
+import { Route as ProfileMenuRouteImport } from './routes/profile-menu'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as TrackRouteImport } from './routes/track'
+import { Route as TripsRouteImport } from './routes/trips'
 import { Route as AdminTaxesRouteImport } from './routes/admin/taxes'
+import { Route as TOrderIdRouteImport } from './routes/t.$orderId'
 
-const TripsRoute = TripsRouteImport.update({
-  id: '/trips',
-  path: '/trips',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TrackRoute = TrackRouteImport.update({
-  id: '/track',
-  path: '/track',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProfileMenuRoute = ProfileMenuRouteImport.update({
-  id: '/profile-menu',
-  path: '/profile-menu',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OrderRoute = OrderRouteImport.update({
-  id: '/order',
-  path: '/order',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsRoute = NotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MerchantSignupRoute = MerchantSignupRouteImport.update({
-  id: '/merchant-signup',
-  path: '/merchant-signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MerchantLoginRoute = MerchantLoginRouteImport.update({
-  id: '/merchant-login',
-  path: '/merchant-login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MerchantRoute = MerchantRouteImport.update({
-  id: '/merchant',
-  path: '/merchant',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EarningsHistoryRoute = EarningsHistoryRouteImport.update({
-  id: '/earnings-history',
-  path: '/earnings-history',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -85,20 +35,70 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TOrderIdRoute = TOrderIdRouteImport.update({
-  id: '/t/$orderId',
-  path: '/t/$orderId',
+const EarningsHistoryRoute = EarningsHistoryRouteImport.update({
+  id: '/earnings-history',
+  path: '/earnings-history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MerchantRoute = MerchantRouteImport.update({
+  id: '/merchant',
+  path: '/merchant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MerchantLoginRoute = MerchantLoginRouteImport.update({
+  id: '/merchant-login',
+  path: '/merchant-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MerchantSignupRoute = MerchantSignupRouteImport.update({
+  id: '/merchant-signup',
+  path: '/merchant-signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderRoute = OrderRouteImport.update({
+  id: '/order',
+  path: '/order',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileMenuRoute = ProfileMenuRouteImport.update({
+  id: '/profile-menu',
+  path: '/profile-menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrackRoute = TrackRouteImport.update({
+  id: '/track',
+  path: '/track',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TripsRoute = TripsRouteImport.update({
+  id: '/trips',
+  path: '/trips',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminTaxesRoute = AdminTaxesRouteImport.update({
   id: '/taxes',
   path: '/taxes',
   getParentRoute: () => AdminRoute,
+} as any)
+const TOrderIdRoute = TOrderIdRouteImport.update({
+  id: '/t/$orderId',
+  path: '/t/$orderId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -226,81 +226,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/trips': {
-      id: '/trips'
-      path: '/trips'
-      fullPath: '/trips'
-      preLoaderRoute: typeof TripsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/track': {
-      id: '/track'
-      path: '/track'
-      fullPath: '/track'
-      preLoaderRoute: typeof TrackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/profile-menu': {
-      id: '/profile-menu'
-      path: '/profile-menu'
-      fullPath: '/profile-menu'
-      preLoaderRoute: typeof ProfileMenuRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/order': {
-      id: '/order'
-      path: '/order'
-      fullPath: '/order'
-      preLoaderRoute: typeof OrderRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications': {
-      id: '/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/merchant-signup': {
-      id: '/merchant-signup'
-      path: '/merchant-signup'
-      fullPath: '/merchant-signup'
-      preLoaderRoute: typeof MerchantSignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/merchant-login': {
-      id: '/merchant-login'
-      path: '/merchant-login'
-      fullPath: '/merchant-login'
-      preLoaderRoute: typeof MerchantLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/merchant': {
-      id: '/merchant'
-      path: '/merchant'
-      fullPath: '/merchant'
-      preLoaderRoute: typeof MerchantRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/earnings-history': {
-      id: '/earnings-history'
-      path: '/earnings-history'
-      fullPath: '/earnings-history'
-      preLoaderRoute: typeof EarningsHistoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -310,18 +240,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/t/$orderId': {
-      id: '/t/$orderId'
-      path: '/t/$orderId'
-      fullPath: '/t/$orderId'
-      preLoaderRoute: typeof TOrderIdRouteImport
+    '/earnings-history': {
+      id: '/earnings-history'
+      path: '/earnings-history'
+      fullPath: '/earnings-history'
+      preLoaderRoute: typeof EarningsHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/merchant': {
+      id: '/merchant'
+      path: '/merchant'
+      fullPath: '/merchant'
+      preLoaderRoute: typeof MerchantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/merchant-login': {
+      id: '/merchant-login'
+      path: '/merchant-login'
+      fullPath: '/merchant-login'
+      preLoaderRoute: typeof MerchantLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/merchant-signup': {
+      id: '/merchant-signup'
+      path: '/merchant-signup'
+      fullPath: '/merchant-signup'
+      preLoaderRoute: typeof MerchantSignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order': {
+      id: '/order'
+      path: '/order'
+      fullPath: '/order'
+      preLoaderRoute: typeof OrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile-menu': {
+      id: '/profile-menu'
+      path: '/profile-menu'
+      fullPath: '/profile-menu'
+      preLoaderRoute: typeof ProfileMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/track': {
+      id: '/track'
+      path: '/track'
+      fullPath: '/track'
+      preLoaderRoute: typeof TrackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trips': {
+      id: '/trips'
+      path: '/trips'
+      fullPath: '/trips'
+      preLoaderRoute: typeof TripsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/taxes': {
@@ -330,6 +323,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/taxes'
       preLoaderRoute: typeof AdminTaxesRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/t/$orderId': {
+      id: '/t/$orderId'
+      path: '/t/$orderId'
+      fullPath: '/t/$orderId'
+      preLoaderRoute: typeof TOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }

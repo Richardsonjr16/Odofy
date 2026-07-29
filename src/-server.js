@@ -5,11 +5,11 @@ const express = require('express');
 
 const requestLogger = require('./middleware/logger');
 const rateLimiter = require('./middleware/rateLimiter');
-const shopifyRoutes = require('./routes/shopify');
-const tripsRoutes = require('./routes/trips');
-const driversRoutes = require('./routes/drivers');
-const merchantsRoutes = require('./routes/merchants');
-const adminRoutes = require('./routes/admin');
+const shopifyRoutes = require('./routes/-shopify');
+const tripsRoutes = require('./routes/-trips');
+const driversRoutes = require('./routes/-drivers');
+const merchantsRoutes = require('./routes/-merchants');
+const adminRoutes = require('./routes/-admin');
 const { startHoldReleaser } = require('./services/holdReleaser');
 
 const app = express();
