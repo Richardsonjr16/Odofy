@@ -236,7 +236,28 @@ function DashboardPage() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [targetedTrip, setTargetedTrip] = useState<AvailableTrip | null>(null);
   const [targetedTimer, setTargetedTimer] = useState(60);
-  const [onlineDrivers] = useState(3);
+  const [onlineDrivers, setOnlineDrivers] = useState<number | null>(null);
+  const [onlineDriversError, setOnlineDriversError] = useState(false);
+
+  useEffect(() => {
+    const fetchOnlineDrivers = () => {
+      fetch("/api/v1/odofy/drivers/online")
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then((data: { count: number }) => {
+          setOnlineDrivers(data.count);
+          setOnlineDriversError(false);
+        })
+        .catch(() => {
+          setOnlineDriversError(true);
+        });
+    };
+    fetchOnlineDrivers();
+    const interval = setInterval(fetchOnlineDrivers, 30_000);
+    return () => clearInterval(interval);
+  }, []);
   const [offerEndTime, setOfferEndTime] = useState<string | null>(
     () => (typeof window !== "undefined" ? sessionStorage.getItem("odofy_offer_end_time") : null) || null
   );
@@ -440,7 +461,7 @@ function DashboardPage() {
 
   useEffect(() => {
     if (targetedTimer === 0 && targetedTrip) {
-      if (onlineDrivers <= 3) {
+      if ((onlineDrivers ?? 3) <= 3) {
         setTrips((prev) => [...prev, targetedTrip!]);
       }
       setTargetedTrip(null);
@@ -588,7 +609,7 @@ function DashboardPage() {
   const handleTargetedReject = () => {
     const trip = targetedTrip;
     if (!trip) return;
-    if (onlineDrivers > 3) {
+    if ((onlineDrivers ?? 3) > 3) {
       setTargetedTrip(null);
     } else {
       setTrips((prev) => [...prev, trip]);
@@ -954,6 +975,18 @@ function DashboardPage() {
               {locationError}
             </div>
           )}
+
+          {/* Upper Left — Online driver count */}
+          <div className="absolute top-4 left-4 z-20">
+            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md border border-gray-100 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-semibold text-gray-700">
+                {onlineDrivers === null
+                  ? "—"
+                  : `${onlineDrivers} driver${onlineDrivers !== 1 ? "s" : ""} online`}
+              </span>
+            </div>
+          </div>
 
           {/* Upper Right — Tool buttons */}
           <div className="absolute top-4 right-4 flex flex-col items-end z-20 gap-2">
