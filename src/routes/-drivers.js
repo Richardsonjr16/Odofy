@@ -166,6 +166,25 @@ router.get('/profile', authenticateDriver, async (req, res) => {
   }
 });
 
+router.post('/feedback', authenticateDriver, async (req, res) => {
+  try {
+    const { reasons, details, trip_id } = req.body;
+
+    if (!reasons || !Array.isArray(reasons)) {
+      return res.status(400).json({ error: 'reasons must be a non-empty array of strings' });
+    }
+
+    console.log(
+      `[DRIVER FEEDBACK] driver=${req.driver.uuid} trip=${trip_id || 'N/A'} reasons=[${reasons.join(', ')}] details="${(details || '').trim()}"`
+    );
+
+    return res.status(200).json({ status: 'feedback_received' });
+  } catch (err) {
+    console.error('Driver feedback error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/location', authenticateDriver, async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
