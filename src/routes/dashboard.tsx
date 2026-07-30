@@ -9,6 +9,8 @@ interface DriverProfile {
   last_name: string;
   email: string;
   phone: string;
+  status?: string;
+  driver_tier?: string;
 }
 
 interface AvailableTrip {
@@ -784,6 +786,37 @@ function DashboardPage() {
           <p className="text-center text-xs text-gray-400 mt-6">
             Powered by Odofy — Springfield delivery network
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PENDING APPROVAL GATE ──
+  if (profile && profile.status === 'PENDING_MANUAL_APPROVAL') {
+    return (
+      <div className="min-h-dvh bg-gray-100 flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 text-center">
+          <div className="text-5xl mb-4">🔒</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Account Pending Approval
+          </h2>
+          <p className="text-gray-600 text-sm leading-relaxed mb-2">
+            Your driver application is being reviewed by our team.
+          </p>
+          <p className="text-gray-600 text-sm leading-relaxed mb-6">
+            You'll receive an email when approved.
+          </p>
+          <div className="inline-block bg-gray-100 rounded-full px-4 py-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider">
+            Tier: {profile.driver_tier || 'PENDING'}
+          </div>
+          <div className="mt-6">
+            <button
+              onClick={handleSignOut}
+              className="text-sm text-gray-400 hover:text-gray-600 underline transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
     );

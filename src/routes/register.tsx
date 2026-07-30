@@ -60,6 +60,8 @@ function RegisterPage() {
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
+    email: "",
+    backup_email: "",
     phone_number: "",
     vehicle_make_model: "",
   });
@@ -88,8 +90,15 @@ function RegisterPage() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const textFieldsFilled = Object.values(form).every(
-    (v) => v.trim() !== "",
+  const isStudentEmail = form.email.toLowerCase().endsWith('.edu');
+
+  const requiredTextFields = ['first_name', 'last_name', 'email', 'phone_number', 'vehicle_make_model'];
+  if (isStudentEmail) {
+    requiredTextFields.push('backup_email');
+  }
+
+  const textFieldsFilled = requiredTextFields.every(
+    (key) => (form as Record<string, string>)[key].trim() !== "",
   );
   const allFilesSelected =
     licenseFileName !== null &&
@@ -116,6 +125,10 @@ function RegisterPage() {
       const formData = new FormData();
       formData.append("first_name", form.first_name);
       formData.append("last_name", form.last_name);
+      formData.append("email", form.email);
+      if (isStudentEmail && form.backup_email) {
+        formData.append("backup_email", form.backup_email);
+      }
       formData.append("phone_number", form.phone_number);
       formData.append("vehicle_make_model", form.vehicle_make_model);
 
@@ -246,6 +259,49 @@ function RegisterPage() {
                 />
               </div>
             </div>
+
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-semibold text-gray-700"
+              >
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={form.email}
+                onChange={handleChange}
+                placeholder="you@example.com"
+                className={fieldClass}
+              />
+            </div>
+
+            {isStudentEmail && (
+              <div>
+                <label
+                  htmlFor="backup_email"
+                  className="block text-sm font-semibold text-gray-700"
+                >
+                  Personal Backup Email
+                </label>
+                <input
+                  id="backup_email"
+                  name="backup_email"
+                  type="email"
+                  required
+                  value={form.backup_email}
+                  onChange={handleChange}
+                  placeholder="you@gmail.com"
+                  className={fieldClass}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Required for .edu registrations. We'll use this if your university email becomes inactive.
+                </p>
+              </div>
+            )}
 
             <div>
               <label
