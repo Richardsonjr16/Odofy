@@ -17,7 +17,7 @@ function authenticateAdmin(req, res, next) {
 router.get('/drivers/pending', authenticateAdmin, async (_req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM odofy_drivers WHERE status = 'PENDING_REVIEW' ORDER BY created_at DESC"
+      "SELECT uuid, first_name, last_name, email, driver_tier, created_at, status FROM odofy_drivers WHERE status IN ('PENDING_REVIEW', 'PENDING_MANUAL_APPROVAL') ORDER BY created_at DESC"
     );
     return res.status(200).json(result.rows);
   } catch (err) {
@@ -60,6 +60,44 @@ router.post('/drivers/:id/approve', authenticateAdmin, async (req, res) => {
     return res.status(200).json(updatedDriver);
   } catch (err) {
     console.error('Driver approval error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/drivers/:id/approve', authenticateAdmin, async (req, res) => {
+  try {
+    const driverId = req.params.id;
+
+    const driverResult = await pool.query(
+      'SELECT * FROM odofy_drivers WHERE uuid = $1',
+      [driverId]
+    );
+
+    if (driverResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+
+    const driver = driverResult.rows[0];
+
+    if (driver.status === 'APPROVED') {
+      return res.status(200).json({ message: 'Driver already approved', driver });
+    }
+
+    const result = await pool.query(
+      "UPDATE odofy_drivers SET status = 'APPROVED' WHERE uuid = $1 RETURNING *",
+      [driverId]
+    );
+
+    const updatedDriver = result.rows[0];
+
+    sendSms(
+      updatedDriver.phone_number,
+      `Odofy Alert: Welcome to the fleet, ${updatedDriver.first_name}! 🐻 Your ${updatedDriver.driver_tier || 'driver'} profile has been approved. Open your driver dashboard to start claiming active Springfield routes: https://getodofy.com/dashboard`
+    ).catch((err) => console.error('Driver approval SMS failed:', err));
+
+    return res.status(200).json(updatedDriver);
+  } catch (err) {
+    console.error('Driver PATCH approval error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
