@@ -22,6 +22,7 @@ interface AvailableTrip {
   driver_tip_allocation: string;
   merchant_id: string;
   created_at: string;
+  scheduled_pickup_time?: string;
 }
 
 interface PickupItem {
@@ -93,6 +94,15 @@ function formatTimeDisplay(hhmm: string): string {
   const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
   const ampm = h >= 12 ? "PM" : "AM";
   return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function formatPickupTime(date: Date | null): string {
+  if (!date) return "--:--";
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const hour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+  const ampm = hours >= 12 ? "PM" : "AM";
+  return `${hour}:${String(minutes).padStart(2, "0")} ${ampm}`;
 }
 
 function generateTimeSlots(): { value: string; label: string }[] {
@@ -275,6 +285,7 @@ function DashboardPage() {
   >("IDLE");
   const [claimedTrip, setClaimedTrip] = useState<AvailableTrip | null>(null);
   const [showSeparationModal, setShowSeparationModal] = useState(false);
+  const [isTooEarlyModalOpen, setIsTooEarlyModalOpen] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [pickupItems, setPickupItems] = useState<PickupItem[]>([]);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
@@ -625,6 +636,29 @@ function DashboardPage() {
 
   // ── Slide to start trip complete ──
   const handleSlideToStartComplete = () => {
+    if (currentLocation && claimedTrip) {
+      const now = new Date();
+      const distMiles = haversineDistance(
+        currentLocation.lat,
+        currentLocation.lng,
+        Number(claimedTrip.dest_latitude),
+        Number(claimedTrip.dest_longitude)
+      );
+      const travelTimeMins = distMiles * 3; // ~3 min/mile
+      const estimatedArrival = new Date(now.getTime() + travelTimeMins * 60000);
+      const targetPickup = claimedTrip?.scheduled_pickup_time
+        ? new Date(claimedTrip.scheduled_pickup_time)
+        : null;
+
+      const minutesEarly = targetPickup
+        ? (targetPickup.getTime() - estimatedArrival.getTime()) / 60000
+        : 0;
+
+      if (targetPickup && minutesEarly > 10) {
+        setIsTooEarlyModalOpen(true);
+        return;
+      }
+    }
     setActiveDeliveryStep("LOADING");
   };
 
@@ -964,6 +998,63 @@ function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* ── EARLY ARRIVAL MODAL ── */}
+      {isTooEarlyModalOpen && (() => {
+        const now = new Date();
+        const distMiles = currentLocation && claimedTrip
+          ? haversineDistance(
+              currentLocation.lat,
+              currentLocation.lng,
+              Number(claimedTrip.dest_latitude),
+              Number(claimedTrip.dest_longitude)
+            )
+          : 0;
+        const travelTimeMins = distMiles * 3;
+        const estimatedArrival = new Date(now.getTime() + travelTimeMins * 60000);
+        const targetPickup = claimedTrip?.scheduled_pickup_time
+          ? new Date(claimedTrip.scheduled_pickup_time)
+          : null;
+
+        return (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex flex-col justify-end animate-fade-in">
+            <div className="bg-white rounded-t-3xl p-6 w-full max-w-md mx-auto flex flex-col items-start gap-4 pb-8 border-t border-gray-100 shadow-2xl animate-slide-up">
+              <div className="w-12 h-12 rounded-full bg-[#E8F0FE] flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0A192F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-[#0A192F] tracking-tight mt-2">
+                It's a little early
+              </h2>
+              <div className="w-full space-y-3 mt-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-base font-semibold text-gray-800">Pickup time</span>
+                  <span className="text-base font-bold text-gray-900">
+                    {formatPickupTime(targetPickup)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-base font-semibold text-gray-800">Current ETA</span>
+                  <span className="text-base font-bold text-gray-900">
+                    {formatPickupTime(estimatedArrival)}
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm font-medium text-gray-500 leading-relaxed mt-2">
+                This business isn't expecting you until the pickup time. You can start the trip when your ETA is closer to {formatPickupTime(targetPickup)}.
+              </p>
+              <button
+                onClick={() => setIsTooEarlyModalOpen(false)}
+                className="w-full py-4 bg-[#0A192F] text-white font-bold text-sm rounded-full text-center shadow-md uppercase tracking-wider mt-4 cursor-pointer hover:bg-[#1E2D4A] transition-colors"
+              >
+                GOT IT
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="max-w-md mx-auto min-h-screen bg-[#F8F9FA] flex flex-col font-sans relative overflow-hidden pb-20">
         {/* ── TOP 40% — FULL-BLEED GEOCATCH MAP ── */}
