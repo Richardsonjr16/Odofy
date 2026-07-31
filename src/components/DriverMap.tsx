@@ -123,11 +123,12 @@ const DriverMap = forwardRef<google.maps.Map | null, DriverMapProps>(
           this.container.style.zIndex = "1000";
 
           const dot = document.createElement("div");
-          dot.style.width = "16px";
-          dot.style.height = "16px";
+          dot.style.width = "20px";
+          dot.style.height = "20px";
           dot.style.backgroundColor = "#5E0009";
           dot.style.borderRadius = "50%";
-          dot.style.border = "2px solid #FFFFFF";
+          dot.style.border = "3px solid #FFFFFF";
+          dot.style.boxShadow = "0 0 0 4px rgba(94, 0, 9, 0.25)";
           dot.style.position = "absolute";
           dot.style.left = "50%";
           dot.style.top = "50%";
