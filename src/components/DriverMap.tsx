@@ -23,6 +23,7 @@ const DriverMap = forwardRef<google.maps.Map | null, DriverMapProps>(
     const overlayRef = useRef<google.maps.OverlayView | null>(null);
     const currentLocationRef = useRef(currentLocation);
     const [ready, setReady] = useState(false);
+    const [mapReady, setMapReady] = useState(false);
 
     useImperativeHandle(ref, () => mapInstance.current, []);
 
@@ -66,6 +67,7 @@ const DriverMap = forwardRef<google.maps.Map | null, DriverMapProps>(
         streetViewControl: false,
         styles: [{ featureType: "poi.business", stylers: [{ visibility: "off" }] }],
       });
+      setMapReady(true);
     }, [ready]);
 
     useEffect(() => {
@@ -167,7 +169,7 @@ const DriverMap = forwardRef<google.maps.Map | null, DriverMapProps>(
           overlayRef.current = null;
         }
       };
-    }, [currentLocation]);
+    }, [currentLocation, mapReady]);
 
     return (
       <div
