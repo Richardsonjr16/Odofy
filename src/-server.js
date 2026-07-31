@@ -10,6 +10,7 @@ const tripsRoutes = require('./routes/-trips');
 const driversRoutes = require('./routes/-drivers');
 const merchantsRoutes = require('./routes/-merchants');
 const adminRoutes = require('./routes/-admin');
+const notifyDriversRoutes = require('./routes/api/-notify-drivers');
 const { startHoldReleaser } = require('./services/holdReleaser');
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/api/v1/odofy/trips', tripsRoutes);
 app.use('/api/v1/odofy/drivers', driversRoutes);
 app.use('/api/v1/odofy/merchants', merchantsRoutes);
 app.use('/api/v1/odofy/admin', adminRoutes);
+app.use('/api/v1/odofy/notify-drivers', notifyDriversRoutes);
 
 app.get('/', (_req, res) => {
   res.json({ status: 'ok' });

@@ -53,6 +53,10 @@ function AdminTaxesPage() {
   const [pendingError, setPendingError] = useState<string | null>(null);
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
 
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<string | null>(null);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
+
   const fetchTaxData = useCallback(async (key: string) => {
     setLoading(true);
     setError(null);
@@ -120,6 +124,27 @@ function AdminTaxesPage() {
         next.delete(driverId);
         return next;
       });
+    }
+  };
+
+  const handleTriggerAlert = async () => {
+    setNotifyLoading(true);
+    setNotifyResult(null);
+    setNotifyError(null);
+    try {
+      const res = await fetch('/api/v1/odofy/notify-drivers', {
+        method: 'POST',
+        headers: { 'x-api-key': adminKey },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+      setNotifyResult(`Sent to ${data.totalSent} drivers`);
+    } catch (err) {
+      setNotifyError(err instanceof Error ? err.message : 'Failed to send notifications');
+    } finally {
+      setNotifyLoading(false);
     }
   };
 
@@ -254,6 +279,46 @@ function AdminTaxesPage() {
               <p className="text-xs text-gray-400 mt-1">
                 Current reporting period
               </p>
+            </div>
+          </div>
+
+          {/* ── FLEET DEMAND MANAGEMENT ── */}
+          <div className="max-w-7xl mx-auto px-6 pb-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Fleet Demand Management
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Broadcast volume alerts to all approved drivers via SMS.
+                  </p>
+                </div>
+                <button
+                  onClick={handleTriggerAlert}
+                  disabled={notifyLoading}
+                  className="w-full sm:w-auto px-6 py-3 bg-[#5E0009] text-white font-bold rounded-xl shadow-md uppercase tracking-wider text-sm flex items-center gap-2 hover:bg-[#4A0007] transition-all cursor-pointer mt-4 sm:mt-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {notifyLoading ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      SENDING…
+                    </>
+                  ) : (
+                    "🚨 Trigger Volume Alert Push"
+                  )}
+                </button>
+              </div>
+              {notifyResult && (
+                <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-3 text-green-800 text-sm font-semibold">
+                  {notifyResult}
+                </div>
+              )}
+              {notifyError && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800 text-sm font-semibold">
+                  {notifyError}
+                </div>
+              )}
             </div>
           </div>
 
