@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../db');
+const pool = require('../db.js');
 const { authenticateDriver, authenticateMerchant } = require('../middleware/auth');
 const { haversineDistance } = require('../lib/haversine');
 const { geocodeAddress } = require('../lib/geocode');
@@ -7,6 +7,7 @@ const { sendSms } = require('../lib/sms');
 const { isMerchantOpen, formatTime } = require('../lib/hours');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const { nanoid } = require('nanoid');
 
 const router = express.Router();
 
@@ -45,31 +46,35 @@ router.post('/manual', authenticateMerchant, async (req, res) => {
       destLongitude
     );
 
-    const tripId = uuidv4();
-    let tripStatus;
-
     if (distance > DELIVERY_RADIUS_MILES) {
-      tripStatus = 'REJECTED';
-    } else {
-      const openingTime = merchant.opening_time || '08:00:00';
-      const closingTime = merchant.closing_time || '22:00:00';
-
-      if (isMerchantOpen(openingTime, closingTime, merchant.timezone)) {
-        tripStatus = 'PENDING_PICKUP';
-      } else {
-        tripStatus = 'HOLD_UNTIL_OPENING';
-        console.log(
-          `Held order for merchant ${merchant.business_name} until opening at ${formatTime(openingTime)}`
-        );
-      }
+      return res.status(422).json({
+        error: 'Delivery address outside our 4.33-mile active courier operating zone.',
+      });
     }
+
+    const tripId = uuidv4();
+    const openingTime = merchant.opening_time || '08:00:00';
+    const closingTime = merchant.closing_time || '22:00:00';
+
+    let tripStatus;
+    if (isMerchantOpen(openingTime, closingTime, merchant.timezone)) {
+      tripStatus = 'PENDING_PICKUP';
+    } else {
+      tripStatus = 'HOLD_UNTIL_OPENING';
+      console.log(
+        `Held order for merchant ${merchant.business_name} until opening at ${formatTime(openingTime)}`
+      );
+    }
+
+    const orderCode = nanoid(6).toUpperCase();
+    const orderNumber = `ODF-${orderCode}`;
 
     const result = await pool.query(
       `INSERT INTO odofy_trips
          (uuid, merchant_id, customer_name, customer_phone,
           delivery_address, dest_latitude, dest_longitude,
-          status, driver_tip_allocation, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+          status, driver_tip_allocation, order_number, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
        RETURNING *`,
       [
         tripId,
@@ -81,16 +86,11 @@ router.post('/manual', authenticateMerchant, async (req, res) => {
         destLongitude,
         tripStatus,
         tip,
+        orderNumber,
       ]
     );
 
     const trip = result.rows[0];
-
-    if (tripStatus === 'REJECTED') {
-      return res
-        .status(200)
-        .json({ status: 'rejected', reason: 'outside_delivery_radius', trip });
-    }
 
     return res.status(201).json(trip);
   } catch (err) {
@@ -186,10 +186,17 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
       const claimedTrip = result.rows[0];
 
       if (claimedTrip.customer_phone) {
-        sendSms(claimedTrip.customer_phone, 'Your Odofy delivery is on its way!').catch(
+        const orderNum = claimedTrip.order_number || '';
+        const smsBody = orderNum
+          ? `Your Odofy order ${orderNum} is on its way! Track at https://getodofy.com/track/${orderNum}`
+          : 'Your Odofy delivery is on its way!';
+        sendSms(claimedTrip.customer_phone, smsBody).catch(
           (err) => console.error('SMS send failed:', err)
         );
       }
+
+      let totalStops = 2;
+      let crossStackBonus = 0.0;
 
       const stackResult = await pool.query(
         `SELECT * FROM odofy_trips
@@ -221,13 +228,42 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
         claimedTrip.batch_id = batchId;
 
         if (stackedTrip.customer_phone) {
-          sendSms(stackedTrip.customer_phone, 'Your Odofy delivery is on its way!').catch(
+          const stackedOrderNum = stackedTrip.order_number || '';
+          const stackedSmsBody = stackedOrderNum
+            ? `Your Odofy order ${stackedOrderNum} is on its way! Track at https://getodofy.com/track/${stackedOrderNum}`
+            : 'Your Odofy delivery is on its way!';
+          sendSms(stackedTrip.customer_phone, stackedSmsBody).catch(
             (err) => console.error('SMS send failed:', err)
+          );
+        }
+
+        const batchCountResult = await pool.query(
+          'SELECT COUNT(*)::int AS count FROM odofy_trips WHERE batch_id = $1',
+          [batchId]
+        );
+        const batchTripCount = batchCountResult.rows[0].count;
+        totalStops = 1 + batchTripCount;
+
+        if (totalStops >= 3) {
+          crossStackBonus = parseFloat(((totalStops - 2) * 2.5).toFixed(2));
+        }
+
+        if (crossStackBonus > 0) {
+          await pool.query(
+            'UPDATE odofy_trips SET driver_payout = driver_payout + $1 WHERE uuid = $2',
+            [crossStackBonus, tripId]
+          );
+          claimedTrip.driver_payout = parseFloat(
+            (parseFloat(claimedTrip.driver_payout) + crossStackBonus).toFixed(2)
           );
         }
       }
 
-      return res.status(200).json(claimedTrip);
+      return res.status(200).json({
+        ...claimedTrip,
+        totalStops,
+        crossStackBonus,
+      });
     }
 
     if (status === 'DELIVERED') {

@@ -1,4 +1,4 @@
-const pool = require('../db');
+const pool = require('../db.js');
 
 async function authenticateDriver(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -11,8 +11,8 @@ async function authenticateDriver(req, res, next) {
 
   try {
     const result = await pool.query(
-      'SELECT * FROM odofy_drivers WHERE auth_token = $1 AND status IN ($2, $3)',
-      [token, 'ACTIVE', 'PENDING_REVIEW']
+      'SELECT * FROM odofy_drivers WHERE auth_token = $1 AND status IN ($2, $3, $4, $5)',
+      [token, 'ACTIVE', 'PENDING_REVIEW', 'PENDING_MANUAL_APPROVAL', 'APPROVED']
     );
 
     if (result.rows.length === 0) {

@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
-const pool = require('../db');
+const pool = require('../db.js');
 const { geocodeAddress } = require('../lib/geocode');
 const { sendTransactionalEmail } = require('../lib/email');
 

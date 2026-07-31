@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const express = require('express');
-const pool = require('../db');
+const pool = require('../db.js');
 const { haversineDistance } = require('../lib/haversine');
 const { geocodeAddress } = require('../lib/geocode');
 const { isMerchantOpen, formatTime } = require('../lib/hours');

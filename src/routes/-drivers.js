@@ -3,10 +3,19 @@ const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const pool = require('../db');
+const pool = require('../db.js');
 const { authenticateDriver } = require('../middleware/auth');
 
 const router = express.Router();
+
+(async () => {
+  try {
+    await pool.query('ALTER TABLE odofy_drivers ADD COLUMN IF NOT EXISTS backup_email TEXT');
+    await pool.query("ALTER TABLE odofy_drivers ADD COLUMN IF NOT EXISTS driver_tier TEXT DEFAULT 'PUBLIC_BACKUP'");
+  } catch (err) {
+    console.error('Driver table migration error:', err);
+  }
+})();
 
 const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
 
@@ -57,7 +66,7 @@ router.post('/register', (req, res, next) => {
   });
 }, async (req, res) => {
   try {
-    const { first_name, last_name, phone_number, vehicle_make_model, email } = req.body;
+    const { first_name, last_name, phone_number, vehicle_make_model, email, backup_email } = req.body;
 
     const missing = [];
     if (!first_name) missing.push('first_name');
@@ -85,12 +94,18 @@ router.post('/register', (req, res, next) => {
     const authToken = crypto.randomBytes(32).toString('hex');
 
     const driverEmail = email && typeof email === 'string' && email.trim() ? email.trim() : null;
+    const driverBackupEmail = backup_email && typeof backup_email === 'string' && backup_email.trim() ? backup_email.trim() : null;
+
+    const isStudentEmail = driverEmail && driverEmail.toLowerCase().endsWith('.edu');
+    const driverTier = isStudentEmail ? 'STUDENT_COURIER' : 'PUBLIC_BACKUP';
+    const driverStatus = 'PENDING_MANUAL_APPROVAL';
 
     const result = await pool.query(
       `INSERT INTO odofy_drivers
          (uuid, first_name, last_name, phone_number, auth_token,
-          license_photo_url, insurance_proof_url, profile_photo_url, vehicle_make_model, email)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          license_photo_url, insurance_proof_url, profile_photo_url, vehicle_make_model,
+          email, backup_email, driver_tier, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         uuidv4(),
@@ -103,6 +118,9 @@ router.post('/register', (req, res, next) => {
         profile_photo_url,
         vehicle_make_model,
         driverEmail,
+        driverBackupEmail,
+        driverTier,
+        driverStatus,
       ]
     );
 
@@ -153,12 +171,12 @@ router.get('/profile', authenticateDriver, async (req, res) => {
     const { uuid, first_name, last_name, phone_number, email, status,
             profile_photo_url, license_photo_url, insurance_proof_url,
             vehicle_make_model, created_at, is_verified, insurance_expiration,
-            license_number, vehicle_color, license_plate } = req.driver;
+            license_number, vehicle_color, license_plate, driver_tier, backup_email } = req.driver;
     return res.status(200).json({
       uuid, first_name, last_name, phone_number, email, status,
       profile_photo_url, license_photo_url, insurance_proof_url,
       vehicle_make_model, created_at, is_verified, insurance_expiration,
-      license_number, vehicle_color, license_plate
+      license_number, vehicle_color, license_plate, driver_tier, backup_email
     });
   } catch (err) {
     console.error('Driver profile error:', err);
