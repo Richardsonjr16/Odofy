@@ -174,6 +174,48 @@ router.get('/merchants', authenticateAdmin, async (_req, res) => {
   }
 });
 
+router.get('/merchants/tax', authenticateAdmin, async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        m.uuid,
+        m.business_name,
+        m.storefront_address,
+        m.latitude,
+        m.longitude,
+        m.api_secret_key,
+        m.shop_domain,
+        m.free_trial_runs_remaining,
+        m.contact_email,
+        COALESCE(trip_stats.total_deliveries, 0)::int AS total_deliveries,
+        COALESCE(trip_stats.platform_revenue, 0)::numeric AS platform_revenue,
+        ROUND(COALESCE(trip_stats.avg_customer_distance, 0)::numeric, 2) AS avg_customer_radius_miles
+      FROM odofy_merchants m
+      LEFT JOIN (
+        SELECT
+          t.merchant_id,
+          COUNT(*) FILTER (WHERE t.status = 'DELIVERED') AS total_deliveries,
+          COALESCE(SUM(t.merchant_fee) FILTER (WHERE t.status = 'DELIVERED'), 0) AS platform_revenue,
+          AVG(
+            3959 * acos(
+              cos(radians(m2.latitude)) * cos(radians(t.dest_latitude))
+              * cos(radians(t.dest_longitude) - radians(m2.longitude))
+              + sin(radians(m2.latitude)) * sin(radians(t.dest_latitude))
+            )
+          ) FILTER (WHERE t.status = 'DELIVERED') AS avg_customer_distance
+        FROM odofy_trips t
+        JOIN odofy_merchants m2 ON m2.uuid = t.merchant_id
+        GROUP BY t.merchant_id
+      ) trip_stats ON trip_stats.merchant_id = m.uuid
+      ORDER BY m.business_name ASC
+    `);
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Fetch merchants tax error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/analytics', authenticateAdmin, async (_req, res) => {
   try {
     const driverRevenueResult = await pool.query(
@@ -221,13 +263,26 @@ router.get('/taxes', authenticateAdmin, async (_req, res) => {
         d.first_name,
         d.last_name,
         d.email,
+        d.phone_number,
+        d.driver_tier,
+        d.status,
+        d.current_latitude,
+        d.current_longitude,
+        d.location_updated_at,
+        d.is_verified,
+        d.license_number,
+        d.vehicle_make_model,
+        d.created_at AS registered_at,
         COALESCE(SUM(t.driver_payout), 0) AS total_base_fares,
         COALESCE(SUM(t.driver_tip_allocation), 0) AS total_tips_bonus,
         COALESCE(SUM(t.driver_payout), 0) + COALESCE(SUM(t.driver_tip_allocation), 0) AS gross_earnings
       FROM odofy_drivers d
       LEFT JOIN odofy_trips t ON t.driver_id = d.uuid AND t.status = 'DELIVERED'
         AND EXTRACT(YEAR FROM t.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-      GROUP BY d.uuid, d.first_name, d.last_name, d.email
+      GROUP BY d.uuid, d.first_name, d.last_name, d.email, d.phone_number,
+        d.driver_tier, d.status, d.current_latitude, d.current_longitude,
+        d.location_updated_at, d.is_verified, d.license_number,
+        d.vehicle_make_model, d.created_at
       ORDER BY gross_earnings DESC
     `);
 
