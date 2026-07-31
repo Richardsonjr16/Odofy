@@ -31,6 +31,8 @@ interface DriverProfile {
   last_name: string;
   email: string;
   phone: string;
+  status?: string;
+  driver_tier?: string;
   marketHub?: string;
 }
 
@@ -45,6 +47,7 @@ interface AvailableTrip {
   driver_tip_allocation: string;
   merchant_id: string;
   created_at: string;
+  scheduled_pickup_time?: string;
   order_number?: string;
   total_stops?: number;
   cross_stack_bonus?: number;
@@ -118,6 +121,15 @@ function formatTimeDisplay(hhmm: string): string {
   const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
   const ampm = h >= 12 ? "PM" : "AM";
   return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function formatPickupTime(date: Date | null): string {
+  if (!date) return "--:--";
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const hour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+  const ampm = hours >= 12 ? "PM" : "AM";
+  return `${hour}:${String(minutes).padStart(2, "0")} ${ampm}`;
 }
 
 function generateTimeSlots(): { value: string; label: string }[] {
@@ -298,6 +310,7 @@ function DashboardPage() {
   const [showAlertBanner, setShowAlertBanner] = useState(false);
   const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
   const targetedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
 
   // ── NEW STATE: Delivery flow ──
   const [activeDeliveryStep, setActiveDeliveryStep] = useState<
@@ -305,6 +318,7 @@ function DashboardPage() {
   >("IDLE");
   const [claimedTrip, setClaimedTrip] = useState<AvailableTrip | null>(null);
   const [showSeparationModal, setShowSeparationModal] = useState(false);
+  const [isTooEarlyModalOpen, setIsTooEarlyModalOpen] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [pickupItems, setPickupItems] = useState<PickupItem[]>([]);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
@@ -675,6 +689,29 @@ function DashboardPage() {
 
   // ── Slide to start trip complete ──
   const handleSlideToStartComplete = () => {
+    if (currentLocation && claimedTrip) {
+      const now = new Date();
+      const distMiles = haversineDistance(
+        currentLocation.lat,
+        currentLocation.lng,
+        Number(claimedTrip.dest_latitude),
+        Number(claimedTrip.dest_longitude)
+      );
+      const travelTimeMins = distMiles * 3; // ~3 min/mile
+      const estimatedArrival = new Date(now.getTime() + travelTimeMins * 60000);
+      const targetPickup = claimedTrip?.scheduled_pickup_time
+        ? new Date(claimedTrip.scheduled_pickup_time)
+        : null;
+
+      const minutesEarly = targetPickup
+        ? (targetPickup.getTime() - estimatedArrival.getTime()) / 60000
+        : 0;
+
+      if (targetPickup && minutesEarly > 10) {
+        setIsTooEarlyModalOpen(true);
+        return;
+      }
+    }
     setActiveDeliveryStep("LOADING");
   };
 
@@ -802,6 +839,37 @@ function DashboardPage() {
           <p className="text-center text-xs text-gray-400 mt-6">
             Powered by Odofy — Springfield delivery network
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PENDING APPROVAL GATE ──
+  if (profile && profile.status === 'PENDING_MANUAL_APPROVAL') {
+    return (
+      <div className="min-h-dvh bg-gray-100 flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 text-center">
+          <div className="text-5xl mb-4">🔒</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Account Pending Approval
+          </h2>
+          <p className="text-gray-600 text-sm leading-relaxed mb-2">
+            Your driver application is being reviewed by our team.
+          </p>
+          <p className="text-gray-600 text-sm leading-relaxed mb-6">
+            You'll receive an email when approved.
+          </p>
+          <div className="inline-block bg-gray-100 rounded-full px-4 py-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider">
+            Tier: {profile.driver_tier || 'PENDING'}
+          </div>
+          <div className="mt-6">
+            <button
+              onClick={handleSignOut}
+              className="text-sm text-gray-400 hover:text-gray-600 underline transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1012,10 +1080,67 @@ function DashboardPage() {
         </div>
       )}
 
+      {/* ── EARLY ARRIVAL MODAL ── */}
+      {isTooEarlyModalOpen && (() => {
+        const now = new Date();
+        const distMiles = currentLocation && claimedTrip
+          ? haversineDistance(
+              currentLocation.lat,
+              currentLocation.lng,
+              Number(claimedTrip.dest_latitude),
+              Number(claimedTrip.dest_longitude)
+            )
+          : 0;
+        const travelTimeMins = distMiles * 3;
+        const estimatedArrival = new Date(now.getTime() + travelTimeMins * 60000);
+        const targetPickup = claimedTrip?.scheduled_pickup_time
+          ? new Date(claimedTrip.scheduled_pickup_time)
+          : null;
+
+        return (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex flex-col justify-end animate-fade-in">
+            <div className="bg-white rounded-t-3xl p-6 w-full max-w-md mx-auto flex flex-col items-start gap-4 pb-8 border-t border-gray-100 shadow-2xl animate-slide-up">
+              <div className="w-12 h-12 rounded-full bg-[#E8F0FE] flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0A192F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-[#0A192F] tracking-tight mt-2">
+                It's a little early
+              </h2>
+              <div className="w-full space-y-3 mt-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-base font-semibold text-gray-800">Pickup time</span>
+                  <span className="text-base font-bold text-gray-900">
+                    {formatPickupTime(targetPickup)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-base font-semibold text-gray-800">Current ETA</span>
+                  <span className="text-base font-bold text-gray-900">
+                    {formatPickupTime(estimatedArrival)}
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm font-medium text-gray-500 leading-relaxed mt-2">
+                This business isn't expecting you until the pickup time. You can start the trip when your ETA is closer to {formatPickupTime(targetPickup)}.
+              </p>
+              <button
+                onClick={() => setIsTooEarlyModalOpen(false)}
+                className="w-full py-4 bg-[#0A192F] text-white font-bold text-sm rounded-full text-center shadow-md uppercase tracking-wider mt-4 cursor-pointer hover:bg-[#1E2D4A] transition-colors"
+              >
+                GOT IT
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="max-w-md mx-auto min-h-screen bg-[#F8F9FA] flex flex-col font-sans relative overflow-hidden pb-20">
         {/* ── TOP 40% — FULL-BLEED GEOCATCH MAP ── */}
         <div className="w-full h-[40vh] relative z-10">
-          <DriverMap markers={mapMarkers} currentLocation={currentLocation} />
+          <DriverMap ref={mapRef} markers={mapMarkers} currentLocation={currentLocation} />
 
           {locationError && (
             <div className="absolute bottom-4 left-4 bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium px-2 py-1 rounded-full z-20">
@@ -1023,37 +1148,29 @@ function DashboardPage() {
             </div>
           )}
 
-          {/* Upper Left — Online driver count */}
-          <div className="absolute top-4 left-4 z-20">
-            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md border border-gray-100 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-semibold text-gray-700">
-                {onlineDrivers === null
-                  ? "—"
-                  : `${onlineDrivers} driver${onlineDrivers !== 1 ? "s" : ""} online`}
-              </span>
-            </div>
+          {/* ── Future scale overlay slot ── */}
+          <div className="absolute right-4 top-24 flex flex-col gap-3 z-40">
+            {/* Future market pills / hub-switching buttons go here */}
           </div>
 
-          {/* Upper Right — Tool buttons */}
-          <div className="absolute top-4 right-4 flex flex-col items-end z-20 gap-2">
+          {/* ── Mobile Re-Center Button ── */}
+          <div className="absolute bottom-[280px] right-4 bg-white hover:bg-gray-50 text-gray-800 rounded-full p-3.5 shadow-lg border border-gray-100 flex items-center justify-center transition-transform active:scale-95 cursor-pointer z-40">
             <button
-              className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-100 text-gray-700 transition-transform active:scale-95"
-              title="Map Layers"
+              onClick={() => {
+                if (currentLocation) {
+                  mapRef.current?.panTo({ lat: currentLocation.lat, lng: currentLocation.lng });
+                  mapRef.current?.setZoom(15);
+                }
+              }}
+              aria-label="Re-center map"
             >
-              🗺️
-            </button>
-            <button
-              className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-100 text-gray-700 transition-transform active:scale-95"
-              title="Info"
-            >
-              ℹ️
-            </button>
-            <button
-              className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-100 text-gray-700 transition-transform active:scale-95"
-              title="Recenter"
-            >
-              🎯
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="2" x2="12" y2="6"/>
+                <line x1="12" y1="18" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="6" y2="12"/>
+                <line x1="18" y1="12" x2="22" y2="12"/>
+              </svg>
             </button>
           </div>
         </div>

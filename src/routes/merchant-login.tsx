@@ -51,7 +51,7 @@ function MerchantLoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-msu-maroon focus:outline-none focus:ring-1 focus:ring-msu-maroon/30"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-msu-maroon focus:outline-none focus:ring-1 focus:ring-msu-maroon/30"
               />
             </div>
             <div>
@@ -61,7 +61,7 @@ function MerchantLoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-msu-maroon focus:outline-none focus:ring-1 focus:ring-msu-maroon/30"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-msu-maroon focus:outline-none focus:ring-1 focus:ring-msu-maroon/30"
               />
             </div>
             <button

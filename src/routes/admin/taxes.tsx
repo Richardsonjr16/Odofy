@@ -20,6 +20,16 @@ interface TaxData {
   drivers_over_600: number;
 }
 
+interface PendingDriver {
+  uuid: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  driver_tier: string;
+  created_at: string;
+  status: string;
+}
+
 export const Route = createFileRoute("/admin/taxes")({
   component: AdminTaxesPage,
 });
@@ -37,6 +47,11 @@ function AdminTaxesPage() {
   const [driversOver600, setDriversOver600] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [pendingDrivers, setPendingDrivers] = useState<PendingDriver[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingError, setPendingError] = useState<string | null>(null);
+  const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
 
   const fetchTaxData = useCallback(async (key: string) => {
     setLoading(true);
@@ -65,13 +80,57 @@ function AdminTaxesPage() {
     }
   }, []);
 
+  const fetchPendingDrivers = useCallback(async (key: string) => {
+    setPendingLoading(true);
+    setPendingError(null);
+    try {
+      const res = await fetch(`${API_BASE}/drivers/pending`, {
+        headers: { "x-api-key": key },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+      const data: PendingDriver[] = await res.json();
+      setPendingDrivers(data.filter((d) => d.status === 'PENDING_MANUAL_APPROVAL'));
+    } catch (err) {
+      setPendingError(err instanceof Error ? err.message : "Failed to load pending drivers");
+    } finally {
+      setPendingLoading(false);
+    }
+  }, []);
+
+  const handleApproveDriver = async (driverId: string) => {
+    setApprovingIds((prev) => new Set(prev).add(driverId));
+    try {
+      const res = await fetch(`${API_BASE}/drivers/${driverId}/approve`, {
+        method: "PATCH",
+        headers: { "x-api-key": adminKey },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+      setPendingDrivers((prev) => prev.filter((d) => d.uuid !== driverId));
+    } catch (err) {
+      setPendingError(err instanceof Error ? err.message : "Failed to approve driver");
+    } finally {
+      setApprovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(driverId);
+        return next;
+      });
+    }
+  };
+
   useEffect(() => {
     if (adminKey) {
       fetchTaxData(adminKey);
+      fetchPendingDrivers(adminKey);
     } else {
       setLoading(false);
     }
-  }, [adminKey, fetchTaxData]);
+  }, [adminKey, fetchTaxData, fetchPendingDrivers]);
 
   const exportCSV = () => {
     const headers = [
@@ -290,6 +349,108 @@ function AdminTaxesPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── PENDING DRIVER APPROVALS ── */}
+      {!loading && !error && (
+        <div className="max-w-7xl mx-auto px-6 pb-10">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">
+                Pending Driver Approvals
+              </h2>
+              <span className="text-sm font-semibold text-gray-500">
+                {pendingDrivers.length} pending
+              </span>
+            </div>
+
+            {pendingLoading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-msu-maroon" />
+              </div>
+            )}
+
+            {pendingError && (
+              <div className="px-6 py-4">
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 text-sm font-semibold">
+                  {pendingError}
+                </div>
+              </div>
+            )}
+
+            {!pendingLoading && !pendingError && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50 text-left">
+                      <th className="px-6 py-3 font-semibold text-gray-600">Name</th>
+                      <th className="px-6 py-3 font-semibold text-gray-600">Email</th>
+                      <th className="px-6 py-3 font-semibold text-gray-600">Tier</th>
+                      <th className="px-6 py-3 font-semibold text-gray-600">Registered</th>
+                      <th className="px-6 py-3 font-semibold text-gray-600">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingDrivers.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                          No pending driver approvals.
+                        </td>
+                      </tr>
+                    )}
+                    {pendingDrivers.map((d) => {
+                      const isApproving = approvingIds.has(d.uuid);
+                      return (
+                        <tr
+                          key={d.uuid}
+                          className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
+                        >
+                          <td className="px-6 py-4">
+                            <p className="font-semibold text-gray-900">
+                              {d.first_name} {d.last_name}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4 font-medium text-gray-700">
+                            {d.email || '—'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                              d.driver_tier === 'STUDENT_COURIER'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {d.driver_tier || '—'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {new Date(d.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => handleApproveDriver(d.uuid)}
+                              disabled={isApproving}
+                              className="px-4 py-2 text-white font-bold text-xs rounded-full shadow-sm hover:opacity-90 transition-opacity disabled:opacity-60"
+                              style={{ backgroundColor: "#5E0009" }}
+                            >
+                              {isApproving ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                  Approving…
+                                </span>
+                              ) : (
+                                "🔓 APPROVE ACCOUNT"
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
