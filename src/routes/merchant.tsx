@@ -1,164 +1,334 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import Navbar from "~/components/Navbar";
+import { useState, useEffect } from "react";
 
-function MerchantSignupPage() {
-  const [businessName, setBusinessName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [storeAddress, setStoreAddress] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState<{ apiKey: string } | null>(null);
+/* ── MSU MAROON DESIGN TOKENS ── */
+const MSU_MAROON = "#5E0009";
+const MSU_MAROON_LIGHT = "rgba(94,0,9,0.08)";
+const MSU_MAROON_HOVER = "rgba(94,0,9,0.85)";
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/v1/odofy/merchants/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          business_name: businessName,
-          contact_email: contactEmail,
-          password,
-          storefront_address: storeAddress,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Registration failed");
-      setResult({ apiKey: data.api_secret_key });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+/* ── TYPES ── */
+interface MerchantOrder {
+  id: string;
+  customer_email: string;
+  subtotal_cents: number;
+  delivery_fee_cents: number;
+  total_cents: number;
+  status: string;
+  route_sequence_index: number | null;
+  created_at: string;
+  delivery_address: string | null;
+}
+
+interface StripeTransaction {
+  id: string;
+  amount_cents: number;
+  status: string;
+  created: number;
+}
+
+/* ── HELPER ── */
+function fmtCents(c: number): string {
+  return `$${(c / 100).toFixed(2)}`;
+}
+
+function MerchantPage() {
+  const [orders, setOrders] = useState<MerchantOrder[]>([]);
+  const [transactions, setTransactions] = useState<StripeTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const email =
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("merchant_email") || ""
+      : "";
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        // Fetch orders via the backend API
+        const ordersRes = await fetch("/api/v1/odofy/merchants/orders", {
+          headers: email ? { "X-Merchant-Email": email } : {},
+        });
+        if (ordersRes.ok) {
+          const data = await ordersRes.json();
+          setOrders(data.orders || []);
+          setTransactions(data.transactions || []);
+        } else {
+          setOrders([]);
+          setTransactions([]);
+        }
+      } catch {
+        setError("Could not load merchant data. Backend may be offline.");
+      } finally {
+        setLoading(false);
+      }
     }
-  }
+    fetchData();
+  }, [email]);
 
-  async function copyToClipboard() {
-    if (result) {
-      await navigator.clipboard.writeText(result.apiKey);
-    }
-  }
+  /* ── Stats ── */
+  const activeCount = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled").length;
+  const totalRevenue = orders.reduce((sum, o) => sum + o.total_cents, 0);
+  const txVolume = transactions.reduce((sum, t) => sum + t.amount_cents, 0);
 
-  if (result) {
+  if (loading) {
     return (
-      <div className="min-h-dvh bg-white">
-        <Navbar />
-        <div className="flex items-center justify-center px-4 pt-24">
-          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-md text-center">
-            <h1 className="text-2xl font-bold text-msu-maroon mb-4">
-              🎉 Your API Key
-            </h1>
-            <pre className="mb-4 break-all rounded bg-gray-100 p-4 text-sm text-gray-800">
-              {result.apiKey}
-            </pre>
-            <button
-              onClick={copyToClipboard}
-              className="mb-4 rounded-lg bg-msu-maroon px-5 py-2.5 text-sm font-medium text-white hover:bg-msu-maroon/80"
-            >
-              Copy to Clipboard
-            </button>
-            <p className="text-xs text-gray-500">
-              Save this key now — you won&apos;t see it again.
-            </p>
-            <div className="mt-6 border-t border-gray-100 pt-4 text-left text-sm text-gray-600">
-              <h2 className="font-semibold text-gray-800 mb-2">Shopify Webhook Setup</h2>
-              <p className="mb-1">
-                Configure your Shopify store to send order webhooks to:
-              </p>
-              <pre className="rounded bg-gray-100 p-2 text-xs text-gray-700">
-                https://getodofy.com/api/v1/odofy/integrations/shopify
-              </pre>
-            </div>
-          </div>
+      <div className="min-h-dvh bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div
+            className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200"
+            style={{ borderTopColor: MSU_MAROON }}
+          />
+          <p className="text-sm text-gray-500">Loading merchant portal…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-dvh bg-white">
-      <Navbar />
-      <div className="flex items-center justify-center px-4 pt-24">
-        <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-md">
-          <h1 className="mb-1 text-2xl font-bold text-msu-maroon">
-            Merchant Sign Up
-          </h1>
-          <p className="mb-6 text-sm text-gray-500">
-            Activate your free trial and start delivering with Odofy.
-          </p>
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
-              {error}
+    <div className="min-h-dvh bg-gray-50">
+      {/* ── HEADER ── */}
+      <header className="border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white"
+              style={{ backgroundColor: MSU_MAROON }}
+            >
+              O
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">Odofy Merchant</h1>
+              {email && (
+                <p className="text-xs text-gray-500">{email}</p>
+              )}
+            </div>
+          </div>
+          <a
+            href="/merchant-login"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+          >
+            Account
+          </a>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-6 space-y-6">
+        {error && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {error}
+          </div>
+        )}
+
+        {/* ── STAT CARDS ── */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          {/* Active Orders */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              Active Orders
+            </p>
+            <p
+              className="mt-1 text-3xl font-bold"
+              style={{ color: MSU_MAROON }}
+            >
+              {activeCount}
+            </p>
+            <p className="mt-0.5 text-xs text-gray-400">
+              {orders.length} total
+            </p>
+          </div>
+
+          {/* Order Revenue */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              Order Revenue
+            </p>
+            <p className="mt-1 text-3xl font-bold text-gray-900">
+              {fmtCents(totalRevenue)}
+            </p>
+            <p className="mt-0.5 text-xs text-gray-400">All orders</p>
+          </div>
+
+          {/* Stripe Connect */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              Stripe Connect
+            </p>
+            <p className="mt-1 text-3xl font-bold text-gray-900">
+              {fmtCents(txVolume)}
+            </p>
+            <p className="mt-0.5 text-xs text-gray-400">
+              {transactions.length} tx processed
+            </p>
+          </div>
+        </div>
+
+        {/* ── STRIPE TRANSACTIONS CARD ── */}
+        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <h2
+              className="text-base font-semibold"
+              style={{ color: MSU_MAROON }}
+            >
+              Stripe Connect Transactions
+            </h2>
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+              {transactions.length} tx
+            </span>
+          </div>
+          {transactions.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-gray-400">
+              No Stripe transactions yet. Completed payments will appear here.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <th className="px-5 py-3">Transaction ID</th>
+                    <th className="px-5 py-3">Amount</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx) => (
+                    <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                      <td className="px-5 py-3 font-mono text-xs text-gray-600">
+                        {tx.id.slice(-12)}
+                      </td>
+                      <td className="px-5 py-3 font-medium text-gray-900">
+                        {fmtCents(tx.amount_cents)}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                          {tx.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-gray-500">
+                        {new Date(tx.created * 1000).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Business Name
-              </label>
-              <input
-                type="text"
-                required
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-msu-maroon focus:outline-none focus:ring-1 focus:ring-msu-maroon/30"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Contact Email
-              </label>
-              <input
-                type="email"
-                required
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-msu-maroon focus:outline-none focus:ring-1 focus:ring-msu-maroon/30"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-msu-maroon focus:outline-none focus:ring-1 focus:ring-msu-maroon/30"
-              />
-              <p className="mt-1 text-xs text-gray-400">Minimum 8 characters</p>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Springfield Store Physical Address
-              </label>
-              <input
-                type="text"
-                required
-                value={storeAddress}
-                onChange={(e) => setStoreAddress(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-msu-maroon focus:outline-none focus:ring-1 focus:ring-msu-maroon/30"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-msu-maroon px-5 py-3 text-sm font-medium text-white hover:bg-msu-maroon/80 disabled:cursor-not-allowed disabled:opacity-50"
+        </section>
+
+        {/* ── ACTIVE ORDERS TABLE ── */}
+        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <h2
+              className="text-base font-semibold"
+              style={{ color: MSU_MAROON }}
             >
-              {loading ? "Submitting..." : "Activate Free Trial & Get API Key"}
-            </button>
-          </form>
+              Active Orders
+            </h2>
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+              {orders.length}
+            </span>
+          </div>
+          {orders.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <div
+                className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full"
+                style={{ backgroundColor: MSU_MAROON_LIGHT }}
+              >
+                <svg className="h-6 w-6" style={{ color: MSU_MAROON }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-gray-700">No orders yet</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Orders from your Shopify store will appear here once processed.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <th className="px-5 py-3">Order</th>
+                    <th className="px-5 py-3">Customer</th>
+                    <th className="px-5 py-3">Subtotal</th>
+                    <th className="px-5 py-3">Total</th>
+                    <th className="px-5 py-3">Route #</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => (
+                    <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      <td className="px-5 py-3 font-mono text-xs text-gray-500">
+                        {order.id.slice(0, 8)}…
+                      </td>
+                      <td className="px-5 py-3 text-gray-900">
+                        {order.customer_email}
+                      </td>
+                      <td className="px-5 py-3 font-medium text-gray-900">
+                        {fmtCents(order.subtotal_cents)}
+                      </td>
+                      <td className="px-5 py-3 font-semibold" style={{ color: MSU_MAROON }}>
+                        {fmtCents(order.total_cents)}
+                      </td>
+                      <td className="px-5 py-3">
+                        {order.route_sequence_index != null ? (
+                          <span
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
+                            style={{ backgroundColor: MSU_MAROON }}
+                          >
+                            {order.route_sequence_index}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3">
+                        <StatusBadge status={order.status} />
+                      </td>
+                      <td className="px-5 py-3 text-xs text-gray-500">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* ── FOOTER ── */}
+      <footer className="border-t border-gray-200 bg-white mt-8">
+        <div className="mx-auto max-w-6xl px-4 py-4 text-center text-xs text-gray-400">
+          Odofy Merchant Portal &copy; {new Date().getFullYear()}
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
 
+/* ── STATUS BADGE COMPONENT ── */
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { bg: string; text: string; label: string }> = {
+    pending:    { bg: "bg-yellow-50",    text: "text-yellow-700",    label: "Pending" },
+    assigned:   { bg: "bg-blue-50",      text: "text-blue-700",      label: "Assigned" },
+    in_transit: { bg: "bg-indigo-50",    text: "text-indigo-700",    label: "In Transit" },
+    delivered:  { bg: "bg-green-50",     text: "text-green-700",     label: "Delivered" },
+    paid:       { bg: "bg-emerald-50",   text: "text-emerald-700",   label: "Paid" },
+    cancelled:  { bg: "bg-red-50",       text: "text-red-700",       label: "Cancelled" },
+  };
+  const s = map[status] || { bg: "bg-gray-50", text: "text-gray-600", label: status };
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${s.bg} ${s.text}`}>
+      {s.label}
+    </span>
+  );
+}
+
 export const Route = createFileRoute("/merchant")({
-  component: MerchantSignupPage,
+  component: MerchantPage,
 });

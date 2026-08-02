@@ -1,7 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { readFile } from "node:fs/promises";
 import { useRef, useState } from "react";
+import {
+  PRIVACY_STATEMENT_TITLE,
+  PRIVACY_STATEMENT_LAST_UPDATED,
+  PRIVACY_STATEMENT_SECTIONS,
+} from "../utils/legalText";
+
+const MASTER_ADMIN_EMAIL = 'support@getodofy.com'; // Master admin account — bypasses background checks
 
 const getBusinessName = createServerFn({ method: "GET" }).handler(async () => {
   try {
@@ -56,6 +63,7 @@ const FILE_BLOCK_CLASS =
 
 function RegisterPage() {
   const businessName = Route.useLoaderData();
+  const router = useRouter();
 
   const [form, setForm] = useState({
     first_name: "",
@@ -77,6 +85,8 @@ function RegisterPage() {
   const [profileFileName, setProfileFileName] = useState<string | null>(null);
 
   const [consent, setConsent] = useState(false);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
     type: "success" | "error";
@@ -116,10 +126,14 @@ function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!allFieldsFilled || !consent) return;
+    if (!allFieldsFilled || !consent || !privacyConsent) return;
 
     setLoading(true);
     setResult(null);
+
+    // --- ADMINISTRATIVE BYPASS CHECK ---
+    const isSystemAdministrator =
+      form.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase();
 
     try {
       const formData = new FormData();
@@ -131,6 +145,11 @@ function RegisterPage() {
       }
       formData.append("phone_number", form.phone_number);
       formData.append("vehicle_make_model", form.vehicle_make_model);
+
+      // Admin override flag — bypasses background check, W-9, and waitlist
+      if (isSystemAdministrator) {
+        formData.append("admin_override", "true");
+      }
 
       const licenseFile = licenseRef.current?.files?.[0];
       const insuranceFile = insuranceRef.current?.files?.[0];
@@ -165,14 +184,28 @@ function RegisterPage() {
           license_photo_url: null,
           insurance_proof_url: null,
           email: null,
-          status: data.status || "PENDING_REVIEW",
+          status: data.status || (isSystemAdministrator ? "APPROVED" : "PENDING_REVIEW"),
         }));
-        setResult({
-          type: "success",
-          message:
-            "Registration submitted successfully! Your application is pending admin review. Your auth token has been saved:",
-          authToken: data.auth_token,
-        });
+
+        if (isSystemAdministrator) {
+          // Admin: skip waitlist, wipe form, and route directly to live dashboard
+          setResult({
+            type: "success",
+            message: "Administrative override — account approved instantly. Routing to dashboard…",
+            authToken: data.auth_token,
+          });
+          setTimeout(() => {
+            router.navigate({ to: "/dashboard" });
+          }, 800);
+        } else {
+          // Normal flow: standard pending admin review
+          setResult({
+            type: "success",
+            message:
+              "Registration submitted successfully! Your application is pending admin review. Your auth token has been saved:",
+            authToken: data.auth_token,
+          });
+        }
       } else if (res.status === 409) {
         setResult({
           type: "error",
@@ -452,14 +485,82 @@ function RegisterPage() {
               </span>
             </label>
 
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={privacyConsent}
+                onChange={(e) => setPrivacyConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-msu-maroon focus:ring-msu-maroon/30"
+              />
+              <span className="text-sm font-medium text-gray-700 leading-relaxed">
+                I have read and agree to the Odofy Deliver{" "}
+                <span
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsPrivacyModalOpen(true);
+                  }}
+                  className="font-bold cursor-pointer underline hover:opacity-80 transition-opacity"
+                  style={{ color: "#5E0009" }}
+                >
+                  Privacy Statement
+                </span>{" "}
+                (Last Updated: {PRIVACY_STATEMENT_LAST_UPDATED}).
+              </span>
+            </label>
+
             <button
               type="submit"
-              disabled={!consent || !allFieldsFilled || loading}
+              disabled={!consent || !privacyConsent || !allFieldsFilled || loading}
               className="w-full rounded-lg bg-msu-maroon px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-msu-maroon/80 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Submitting..." : "Submit Profile for Admin Review"}
             </button>
           </form>
+
+          {/* ── PRIVACY STATEMENT MODAL ── */}
+          {isPrivacyModalOpen && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 animate-fade-in">
+              <div className="bg-white rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl p-6 relative border border-gray-100">
+                {/* Close button */}
+                <button
+                  onClick={() => setIsPrivacyModalOpen(false)}
+                  className="absolute top-4 right-4 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                >
+                  ✕ Close
+                </button>
+
+                {/* Title */}
+                <h2 className="text-lg font-bold text-gray-900 pr-16">
+                  {PRIVACY_STATEMENT_TITLE}
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Last updated: {PRIVACY_STATEMENT_LAST_UPDATED}
+                </p>
+
+                {/* Scrollable body */}
+                <div className="overflow-y-auto text-sm text-gray-600 leading-relaxed pr-2 mt-4 space-y-4 font-normal">
+                  {PRIVACY_STATEMENT_SECTIONS.map((section) => (
+                    <div key={section.title}>
+                      <h3 className="text-sm font-bold text-gray-900 mb-1">
+                        {section.title}
+                      </h3>
+                      <p className="whitespace-pre-wrap">{section.body}</p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
+                    For privacy-related inquiries, contact{" "}
+                    <a
+                      href="mailto:support@getodofy.com"
+                      className="text-msu-maroon underline"
+                    >
+                      support@getodofy.com
+                    </a>
+                    .
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {result && (
             <div

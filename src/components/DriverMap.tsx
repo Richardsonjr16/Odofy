@@ -15,6 +15,75 @@ interface DriverMapProps {
 const SPRINGFIELD_CENTER = { lat: 37.1944, lng: -93.2844 };
 const DEFAULT_ZOOM = 12;
 
+function createLocationButton(map: google.maps.Map): HTMLDivElement {
+  const controlDiv = document.createElement("div");
+
+  // Match Google's native control style: white pill/circle with shadow
+  const button = document.createElement("button");
+  button.type = "button";
+  button.title = "Your location";
+  button.style.cssText = `
+    width: 40px;
+    height: 40px;
+    background: #fff;
+    border: none;
+    border-radius: 2px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+    padding: 0;
+  `;
+
+  // Crosshair icon using inline SVG (matches Google Maps native look)
+  button.innerHTML = `
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2">
+      <circle cx="12" cy="12" r="8" />
+      <line x1="12" y1="2" x2="12" y2="6" />
+      <line x1="12" y1="18" x2="12" y2="22" />
+      <line x1="2" y1="12" x2="6" y2="12" />
+      <line x1="18" y1="12" x2="22" y2="12" />
+    </svg>
+  `;
+
+  button.addEventListener("click", () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+
+    // Show loading state
+    button.style.background = "#e8e8e8";
+    button.style.cursor = "wait";
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        map.setCenter(loc);
+        map.setZoom(16);
+        button.style.background = "#4285f4"; // Google blue — indicate active
+        button.querySelector("svg")!.style.stroke = "#fff";
+        setTimeout(() => {
+          button.style.background = "#fff";
+          button.querySelector("svg")!.style.stroke = "#666";
+        }, 800);
+        button.style.cursor = "pointer";
+      },
+      () => {
+        button.style.background = "#fff";
+        button.style.cursor = "pointer";
+        alert("Unable to retrieve your location");
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  });
+
+  controlDiv.appendChild(button);
+  return controlDiv;
+}
+
 const DriverMap = forwardRef<google.maps.Map | null, DriverMapProps>(
   function DriverMap({ markers = [], currentLocation = null }, ref) {
     const mapRef = useRef<HTMLDivElement>(null);
@@ -43,7 +112,7 @@ const DriverMap = forwardRef<google.maps.Map | null, DriverMapProps>(
 
       const script = document.createElement("script");
       script.id = "odofy-maps-script";
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=odofyMapsLoaded`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly&loading=async&callback=odofyMapsLoaded`;
       script.async = true;
       script.defer = true;
 
@@ -62,11 +131,19 @@ const DriverMap = forwardRef<google.maps.Map | null, DriverMapProps>(
       mapInstance.current = new window.google.maps.Map(mapRef.current, {
         center: SPRINGFIELD_CENTER,
         zoom: DEFAULT_ZOOM,
+        disableDefaultUI: false,
+        zoomControl: true,
+        gestureHandling: "greedy",
         mapTypeControl: false,
-        fullscreenControl: false,
         streetViewControl: false,
+        fullscreenControl: false,
         styles: [{ featureType: "poi.business", stylers: [{ visibility: "off" }] }],
       });
+
+      // Add custom My Location button to bottom-right (Google Maps native position)
+      const locationButton = createLocationButton(mapInstance.current);
+      mapInstance.current.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(locationButton);
+
       setMapReady(true);
     }, [ready]);
 

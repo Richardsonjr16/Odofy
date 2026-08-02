@@ -79,4 +79,48 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// GET /orders — fetch merchant orders + Stripe transactions for the portal
+router.get('/orders', async (req, res) => {
+  try {
+    const email = req.headers['x-merchant-email'];
+
+    if (!email) {
+      // Return empty arrays if no email header — portal shows empty state
+      return res.json({ orders: [], transactions: [] });
+    }
+
+    // Find merchant by email
+    const merchantResult = await pool.query(
+      `SELECT uuid FROM odofy_merchants WHERE contact_email = $1`,
+      [email]
+    );
+
+    if (merchantResult.rows.length === 0) {
+      return res.json({ orders: [], transactions: [] });
+    }
+
+    const storeId = merchantResult.rows[0].uuid;
+
+    // Fetch orders
+    const ordersResult = await pool.query(
+      `SELECT id, customer_email, subtotal_cents, delivery_fee_cents,
+              total_cents, status, route_sequence_index, created_at,
+              delivery_address
+       FROM orders
+       WHERE store_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [storeId]
+    );
+
+    return res.json({
+      orders: ordersResult.rows,
+      transactions: [],
+    });
+  } catch (err) {
+    console.error('Merchant orders fetch error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
