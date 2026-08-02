@@ -9,6 +9,8 @@ interface Trip {
   driver_tip_allocation: string;
   batch_id: string | null;
   created_at: string;
+  payout_method?: string;
+  payout_status?: string;
 }
 
 type ViewMode = "weeks" | { weekStart: string; trips: Trip[] };
@@ -48,6 +50,7 @@ function EarningsHistoryPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("weeks");
   const [expandedWeek, setExpandedWeek] = useState<string | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 
   useEffect(() => {
     const token = sessionStorage.getItem("odofy_driver_token");
@@ -211,10 +214,15 @@ function EarningsHistoryPage() {
                                   parseFloat(trip.driver_payout) +
                                   parseFloat(trip.driver_tip_allocation || "0");
                                 const orderCount = trip.batch_id ? 2 : 1;
+                                const method = trip.payout_method || "ach_automatic";
+                                const statusLabel = method === "instant"
+                                  ? "⚡ INSTANT CASH OUT — COMPLETED"
+                                  : "🏦 AUTOMATIC BANK DEPOSIT — SETTLED";
                                 return (
                                   <div
                                     key={trip.uuid}
-                                    className="px-8 py-3 flex items-center justify-between"
+                                    onClick={() => setSelectedTrip(trip)}
+                                    className="px-8 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition"
                                   >
                                     <div>
                                       <p className="text-xs font-mono text-gray-400">
@@ -230,6 +238,9 @@ function EarningsHistoryPage() {
                                           "en-US",
                                           { hour: "numeric", minute: "2-digit" }
                                         )}
+                                      </p>
+                                      <p className="text-xs font-bold text-gray-800 mt-0.5">
+                                        {statusLabel}
                                       </p>
                                     </div>
                                     <span className="font-bold text-msu-maroon">
@@ -259,6 +270,80 @@ function EarningsHistoryPage() {
           )}
         </div>
       </main>
+
+      {/* ── TRANSACTION DETAIL MODAL ── */}
+      {selectedTrip && (() => {
+        const method = selectedTrip.payout_method || "ach_automatic";
+        const total = parseFloat(selectedTrip.driver_payout) + parseFloat(selectedTrip.driver_tip_allocation || "0");
+        const secondaryText = method === "instant"
+          ? "Sent immediately to debit card"
+          : "Deposited to bank account via standard 2-day free rolling sweep";
+        const secondaryClass = method === "instant"
+          ? "text-xs text-gray-400"
+          : "text-xs text-green-600 font-medium";
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 animate-fade-in">
+            <div className="bg-white rounded-t-[28px] sm:rounded-2xl w-full max-w-md mx-auto flex flex-col gap-4 px-6 pt-8 pb-6 shadow-2xl animate-slide-up">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-extrabold text-gray-900">Transaction Details</h2>
+                <button
+                  onClick={() => setSelectedTrip(null)}
+                  className="text-sm font-semibold text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              {/* Payout status */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+                <p className="text-sm font-bold text-gray-800">
+                  {method === "instant"
+                    ? "⚡ INSTANT CASH OUT — COMPLETED"
+                    : "🏦 AUTOMATIC BANK DEPOSIT — SETTLED"}
+                </p>
+                <p className={secondaryClass}>{secondaryText}</p>
+              </div>
+
+              {/* Breakdown */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Trip ID</span>
+                  <span className="font-mono text-gray-700 text-xs">{selectedTrip.uuid.slice(0, 12)}…</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Base Payout</span>
+                  <span className="font-semibold text-gray-900">${parseFloat(selectedTrip.driver_payout).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Tip Earned</span>
+                  <span className="font-semibold text-gray-900">${parseFloat(selectedTrip.driver_tip_allocation || "0").toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm border-t border-gray-100 pt-2">
+                  <span className="text-gray-500">Subtotal</span>
+                  <span className="font-semibold text-gray-900">${total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-100 rounded px-2 py-0.5">
+                    Processing Fee: $0.00
+                  </span>
+                </div>
+                <div className="flex justify-between text-base border-t border-gray-200 pt-2">
+                  <span className="font-bold text-gray-900">Total Deposited</span>
+                  <span className="font-extrabold text-msu-maroon">${total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedTrip(null)}
+                className="w-full py-3.5 bg-msu-maroon text-white font-bold text-sm rounded-full shadow-md uppercase tracking-wider hover:bg-msu-maroon/90 transition-colors cursor-pointer"
+              >
+                GOT IT
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       <DriverFooter />
     </div>

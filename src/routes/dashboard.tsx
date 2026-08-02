@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import DriverFooter from "../components/DriverFooter";
 import DriverMap from "../components/DriverMap";
 
 // ── COLLEGIATE MARKET THEME DIRECTORY ──
@@ -257,6 +256,74 @@ function SlideTrack({
   );
 }
 
+function GeofenceMiniMap({ destLat, destLng }: { destLat: number; destLng: number }) {
+  const miniRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const circleRef = useRef<google.maps.Circle | null>(null);
+  const [miniReady, setMiniReady] = useState(false);
+
+  // Wait for Google Maps API to be loaded
+  useEffect(() => {
+    if (window.google?.maps) {
+      setMiniReady(true);
+      return;
+    }
+    const check = setInterval(() => {
+      if (window.google?.maps) {
+        setMiniReady(true);
+        clearInterval(check);
+      }
+    }, 200);
+    return () => clearInterval(check);
+  }, []);
+
+  useEffect(() => {
+    if (!miniReady || !miniRef.current || mapRef.current) return;
+
+    mapRef.current = new window.google.maps.Map(miniRef.current, {
+      center: { lat: destLat, lng: destLng },
+      zoom: 18,
+      disableDefaultUI: true,
+      gestureHandling: "none",
+      zoomControl: false,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      styles: [{ featureType: "poi.business", stylers: [{ visibility: "off" }] }],
+    });
+
+    // Destination pin
+    new window.google.maps.Marker({
+      position: { lat: destLat, lng: destLng },
+      map: mapRef.current,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        fillColor: "#5E0009",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 2,
+        scale: 8,
+      },
+    });
+
+    // 150-foot radius circle (150 ft = 45.72 meters)
+    circleRef.current = new window.google.maps.Circle({
+      map: mapRef.current,
+      center: { lat: destLat, lng: destLng },
+      radius: 45.72, // 150 feet in meters
+      fillColor: "#22c55e",
+      fillOpacity: 0.15,
+      strokeColor: "#22c55e",
+      strokeWeight: 2,
+      strokeOpacity: 0.7,
+    });
+  }, [miniReady, destLat, destLng]);
+
+  return (
+    <div ref={miniRef} className="w-full h-full" />
+  );
+}
+
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
 });
@@ -307,10 +374,48 @@ function DashboardPage() {
   const [isOdofyNowActive, setIsOdofyNowActive] = useState(
     () => (typeof window !== "undefined" ? sessionStorage.getItem("odofy_now_active") : null) === "true"
   );
+  const [currentTab, setCurrentTab] = useState('home');
   const [showAlertBanner, setShowAlertBanner] = useState(false);
   const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
   const targetedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const [currentPostedLimit, setCurrentPostedLimit] = useState<number | null>(null);
+
+  // ── Speed limit resolution via OpenStreetMap Overpass API ──
+  useEffect(() => {
+    if (!currentLocation) return;
+
+    let cancelled = false;
+    const { lat, lng } = currentLocation;
+
+    // Query OSM Overpass API for maxspeed tag on the nearest highway segment
+    const query = `[out:json];way(around:40,${lat},${lng})["highway"]["maxspeed"];out tags 1;`;
+    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+    fetch(url)
+      .then((res) => res.json())
+      .then((data: { elements?: Array<{ tags?: { maxspeed?: string } }> }) => {
+        if (cancelled) return;
+        const elements = data.elements ?? [];
+        if (elements.length === 0) {
+          setCurrentPostedLimit(null);
+          return;
+        }
+        // maxspeed can be a plain number ("25") or with unit ("25 mph")
+        const raw = elements[0].tags?.maxspeed;
+        if (!raw) {
+          setCurrentPostedLimit(null);
+          return;
+        }
+        const numeric = parseInt(raw, 10);
+        setCurrentPostedLimit(Number.isFinite(numeric) ? numeric : null);
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentPostedLimit(null);
+      });
+
+    return () => { cancelled = true; };
+  }, [currentLocation]);
 
   // ── NEW STATE: Delivery flow ──
   const [activeDeliveryStep, setActiveDeliveryStep] = useState<
@@ -323,6 +428,7 @@ function DashboardPage() {
   const [pickupItems, setPickupItems] = useState<PickupItem[]>([]);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
   const [showArrivalError, setShowArrivalError] = useState(false);
+  const [showGeofenceWarning, setShowGeofenceWarning] = useState(false);
   const [arrivalSlideKey, setArrivalSlideKey] = useState(0);
   // ── Derived from claimed/selected trip data ──
   const totalStops = useMemo(() => {
@@ -743,7 +849,7 @@ function DashboardPage() {
       );
       const distFeet = dist * 5280;
       if (distFeet > 150) {
-        setShowArrivalError(true);
+        setShowGeofenceWarning(true);
         setArrivalSlideKey((prev) => prev + 1);
         return;
       }
@@ -875,6 +981,44 @@ function DashboardPage() {
     );
   }
 
+  // ── BOTTOM NAV (inline, replaces DriverFooter) ──
+  const bottomNav = (
+    <footer className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-20 bg-white border-t border-gray-100 flex items-center justify-between px-4 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
+      {/* Home tab */}
+      <button onClick={() => setCurrentTab('home')} className="flex flex-col items-center justify-center flex-1 py-2 cursor-pointer transition-all z-40 select-none" style={{ color: currentTab === 'home' ? '#5E0009' : '#707478' }}>
+        <span className="text-xl leading-none">🏠</span>
+        <span className="text-[10px] font-semibold tracking-wide uppercase mt-0.5">Home</span>
+      </button>
+
+      {/* Trips tab — between Home and Earnings */}
+      <button onClick={() => setCurrentTab('trips')} className="flex flex-col items-center justify-center flex-1 py-2 cursor-pointer transition-all z-40 select-none" style={{ color: currentTab === 'trips' ? '#5E0009' : '#707478' }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        <span className="text-[10px] font-semibold tracking-wide uppercase mt-0.5">Trips</span>
+      </button>
+
+      {/* Earnings tab */}
+      <a href="/earnings-history" className="flex flex-col items-center justify-center flex-1 py-2 cursor-pointer transition-all z-40 select-none no-underline" style={{ color: '#707478' }}>
+        <span className="text-xl leading-none">💰</span>
+        <span className="text-[10px] font-semibold tracking-wide uppercase mt-0.5">Earnings</span>
+      </a>
+
+      {/* Notifications tab */}
+      <a href="/notifications" className="flex flex-col items-center justify-center flex-1 py-2 cursor-pointer transition-all z-40 select-none no-underline" style={{ color: '#707478' }}>
+        <span className="text-xl leading-none">🔔</span>
+        <span className="text-[10px] font-semibold tracking-wide uppercase mt-0.5">Notifications</span>
+      </a>
+
+      {/* More tab */}
+      <a href="/profile-menu" className="flex flex-col items-center justify-center flex-1 py-2 cursor-pointer transition-all z-40 select-none no-underline" style={{ color: '#707478' }}>
+        <span className="text-xl leading-none">⋯</span>
+        <span className="text-[10px] font-semibold tracking-wide uppercase mt-0.5">More</span>
+      </a>
+    </footer>
+  );
+
   // ── EN_ROUTE ACTIVE STOP SCREEN ──
   if (activeDeliveryStep === "EN_ROUTE" && claimedTrip) {
     const customerLat = Number(claimedTrip.dest_latitude);
@@ -937,6 +1081,19 @@ function DashboardPage() {
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
               </svg>
             </div>
+          </div>
+
+          {/* ── Speed Limit Sign ── */}
+          <div className="absolute bottom-4 left-4 bg-white border border-gray-900/90 rounded-lg w-12 h-16 flex flex-col items-center justify-between py-2 shadow-sm z-40 select-none pointer-events-none transition-all">
+            <span className="text-[8px] font-bold text-gray-500 tracking-wider uppercase leading-none">
+              SPEED
+            </span>
+            <span className="text-[8px] font-bold text-gray-500 tracking-wider uppercase leading-none -mt-0.5">
+              LIMIT
+            </span>
+            <span className="text-xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
+              {currentPostedLimit ? currentPostedLimit : '--'}
+            </span>
           </div>
         </div>
 
@@ -1017,7 +1174,7 @@ function DashboardPage() {
           </div>
         </div>
 
-        <DriverFooter />
+        {bottomNav}
       </div>
     );
   }
@@ -1138,6 +1295,30 @@ function DashboardPage() {
       })()}
 
       <div className="max-w-md mx-auto min-h-screen bg-[#F8F9FA] flex flex-col font-sans relative overflow-hidden pb-20">
+        {currentTab === 'trips' ? (
+          <div className="w-full h-full bg-gray-50 overflow-y-auto px-4 py-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Available Trips</h2>
+            {trips.filter(t => !removedIds.has(t.uuid)).length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-12">No trips available right now.</p>
+            ) : (
+              <div className="space-y-3">
+                {trips.filter(t => !removedIds.has(t.uuid)).map((trip) => (
+                  <div key={trip.uuid} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold text-gray-900">{trip.customer_name || "Customer"}</p>
+                        <p className="text-sm text-gray-500">{trip.delivery_address}</p>
+                        {trip.order_number && <p className="text-xs text-gray-400">Order #{trip.order_number}</p>}
+                      </div>
+                      <span className="text-sm font-bold text-green-700">${trip.driver_payout}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
         {/* ── TOP 40% — FULL-BLEED GEOCATCH MAP ── */}
         <div className="w-full h-[40vh] relative z-10">
           <DriverMap ref={mapRef} markers={mapMarkers} currentLocation={currentLocation} />
@@ -1148,30 +1329,17 @@ function DashboardPage() {
             </div>
           )}
 
-          {/* ── Future scale overlay slot ── */}
-          <div className="absolute right-4 top-24 flex flex-col gap-3 z-40">
-            {/* Future market pills / hub-switching buttons go here */}
-          </div>
-
-          {/* ── Mobile Re-Center Button ── */}
-          <div className="absolute bottom-[280px] right-4 bg-white hover:bg-gray-50 text-gray-800 rounded-full p-3.5 shadow-lg border border-gray-100 flex items-center justify-center transition-transform active:scale-95 cursor-pointer z-40">
-            <button
-              onClick={() => {
-                if (currentLocation) {
-                  mapRef.current?.panTo({ lat: currentLocation.lat, lng: currentLocation.lng });
-                  mapRef.current?.setZoom(15);
-                }
-              }}
-              aria-label="Re-center map"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="2" x2="12" y2="6"/>
-                <line x1="12" y1="18" x2="12" y2="22"/>
-                <line x1="2" y1="12" x2="6" y2="12"/>
-                <line x1="18" y1="12" x2="22" y2="12"/>
-              </svg>
-            </button>
+          {/* ── Speed Limit Sign ── */}
+          <div className="absolute bottom-4 left-4 bg-white border border-gray-900/90 rounded-lg w-12 h-16 flex flex-col items-center justify-between py-2 shadow-sm z-40 select-none pointer-events-none transition-all">
+            <span className="text-[8px] font-bold text-gray-500 tracking-wider uppercase leading-none">
+              SPEED
+            </span>
+            <span className="text-[8px] font-bold text-gray-500 tracking-wider uppercase leading-none -mt-0.5">
+              LIMIT
+            </span>
+            <span className="text-xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
+              {currentPostedLimit ? currentPostedLimit : '--'}
+            </span>
           </div>
         </div>
 
@@ -1588,30 +1756,80 @@ function DashboardPage() {
             </span>
           </div>
         )}
-
-        <DriverFooter />
+          </>
+        )}
+        {bottomNav}
       </div>
 
       {/* ── ARRIVAL ERROR MODAL ── */}
-      {showArrivalError && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-xl flex flex-col items-center gap-4 animate-slide-up">
-            <span className="text-4xl">📍</span>
-            <h2 className="text-xl font-bold text-gray-900">Too Far Away</h2>
-            <p className="text-sm font-medium text-gray-600 leading-relaxed">
-              You must be within 150 feet of the delivery address to confirm
-              arrival.
-            </p>
-            <button
-              onClick={() => setShowArrivalError(false)}
-              className="w-full py-3.5 text-white font-bold text-sm rounded-full shadow-md transition-all uppercase tracking-wider"
-              style={{ backgroundColor: currentMarketColors.primary }}
-            >
-              GOT IT
-            </button>
+      {showGeofenceWarning && claimedTrip && (() => {
+        const destLat = Number(claimedTrip.dest_latitude);
+        const destLng = Number(claimedTrip.dest_longitude);
+        const distFeet = currentLocation
+          ? haversineDistance(currentLocation.lat, currentLocation.lng, destLat, destLng) * 5280
+          : 999;
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 animate-fade-in">
+            <div className="bg-white rounded-t-[28px] sm:rounded-2xl w-full max-w-md mx-auto flex flex-col items-center gap-3 px-6 pt-8 pb-6 shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto">
+              {/* Warning Icon */}
+              <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+
+              {/* Headline */}
+              <h2 className="text-xl font-extrabold text-gray-900 tracking-tight text-center">
+                You may not be close enough to the stop
+              </h2>
+
+              {/* Mini Map */}
+              <div className="w-full h-40 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0 border border-gray-200 relative">
+                <GeofenceMiniMap
+                  destLat={destLat}
+                  destLng={destLng}
+                />
+              </div>
+
+              {/* Instructional Copy */}
+              <p className="text-sm font-medium text-gray-600 text-center px-2 leading-relaxed">
+                Once you're within the 150-foot radius circle, you can try confirming your arrival again.
+              </p>
+
+              {/* Open Location Settings */}
+              <button
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(() => {}, () => {});
+                  }
+                  // Attempt to open device location settings
+                  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+                  if (isIOS) {
+                    window.open('App-Prefs:root=Privacy&path=LOCATION', '_blank');
+                  } else {
+                    window.open('app-settings:', '_blank');
+                  }
+                }}
+                className="w-full py-3 border-2 border-gray-200 text-gray-700 font-bold text-sm rounded-full text-center uppercase tracking-wider hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                OPEN LOCATION SETTINGS
+              </button>
+
+              {/* GOT IT Button */}
+              <button
+                onClick={() => setShowGeofenceWarning(false)}
+                className="w-full py-4 text-white font-bold text-sm rounded-full text-center shadow-md uppercase tracking-wider cursor-pointer"
+                style={{ backgroundColor: currentMarketColors.primary }}
+              >
+                GOT IT
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── VEHICLE SEPARATION MODAL ── */}
       {showSeparationModal && (

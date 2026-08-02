@@ -66,7 +66,7 @@ router.post('/register', (req, res, next) => {
   });
 }, async (req, res) => {
   try {
-    const { first_name, last_name, phone_number, vehicle_make_model, email, backup_email } = req.body;
+    const { first_name, last_name, phone_number, vehicle_make_model, email, backup_email, admin_override } = req.body;
 
     const missing = [];
     if (!first_name) missing.push('first_name');
@@ -96,9 +96,17 @@ router.post('/register', (req, res, next) => {
     const driverEmail = email && typeof email === 'string' && email.trim() ? email.trim() : null;
     const driverBackupEmail = backup_email && typeof backup_email === 'string' && backup_email.trim() ? backup_email.trim() : null;
 
+    // --- ADMINISTRATIVE BYPASS ---
+    // Master admin email bypasses background checks, W-9 hold, and waitlist queue
+    const MASTER_ADMIN_EMAIL = 'support@getodofy.com';
+    const isAdminOverride =
+      admin_override === 'true' &&
+      driverEmail &&
+      driverEmail.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase();
+
     const isStudentEmail = driverEmail && driverEmail.toLowerCase().endsWith('.edu');
-    const driverTier = isStudentEmail ? 'STUDENT_COURIER' : 'PUBLIC_BACKUP';
-    const driverStatus = 'PENDING_MANUAL_APPROVAL';
+    const driverTier = isAdminOverride ? 'STUDENT_COURIER' : (isStudentEmail ? 'STUDENT_COURIER' : 'PUBLIC_BACKUP');
+    const driverStatus = isAdminOverride ? 'APPROVED' : 'PENDING_MANUAL_APPROVAL';
 
     const result = await pool.query(
       `INSERT INTO odofy_drivers
