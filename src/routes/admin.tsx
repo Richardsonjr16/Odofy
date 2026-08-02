@@ -71,6 +71,7 @@ function AdminPage() {
     return "";
   });
   const [keyInput, setKeyInput] = useState("");
+  const [validating, setValidating] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("drivers");
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
@@ -86,14 +87,31 @@ function AdminPage() {
     return <Outlet />;
   }
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = keyInput.trim();
-    if (!trimmed) return;
-    sessionStorage.setItem(ADMIN_KEY_STORAGE, trimmed);
-    setApiKey(trimmed);
-    setKeyInput("");
+    if (!trimmed || validating) return;
+
+    setValidating(true);
     setError(null);
+    try {
+      const response = await fetch(`${API_BASE}/drivers/pending`, {
+        headers: { "x-api-key": trimmed },
+      });
+
+      if (response.status !== 200) {
+        setError("Invalid API key. Please try again.");
+        return;
+      }
+
+      sessionStorage.setItem(ADMIN_KEY_STORAGE, trimmed);
+      setApiKey(trimmed);
+      setKeyInput("");
+    } catch {
+      setError("Invalid API key. Please try again.");
+    } finally {
+      setValidating(false);
+    }
   };
 
   const handleLogout = () => {
@@ -118,6 +136,11 @@ function AdminPage() {
               Enter your admin API key to continue.
             </p>
           </div>
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+              <p className="text-sm font-semibold">{error}</p>
+            </div>
+          )}
           <form
             onSubmit={handleLogin}
             className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
@@ -139,10 +162,10 @@ function AdminPage() {
             />
             <button
               type="submit"
-              disabled={!keyInput.trim()}
+              disabled={!keyInput.trim() || validating}
               className="w-full rounded-lg bg-msu-maroon px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-msu-maroon/80 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Unlock Dashboard
+              {validating ? "Verifying…" : "Unlock Dashboard"}
             </button>
           </form>
         </div>
