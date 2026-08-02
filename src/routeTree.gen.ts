@@ -22,6 +22,7 @@ import { Route as ProfileMenuRouteImport } from './routes/profile-menu'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as TrackRouteImport } from './routes/track'
 import { Route as TripsRouteImport } from './routes/trips'
+import { Route as AdminDriversRouteImport } from './routes/admin/drivers'
 import { Route as AdminTaxesRouteImport } from './routes/admin/taxes'
 import { Route as TOrderIdRouteImport } from './routes/t.$orderId'
 
@@ -90,6 +91,11 @@ const TripsRoute = TripsRouteImport.update({
   path: '/trips',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDriversRoute = AdminDriversRouteImport.update({
+  id: '/drivers',
+  path: '/drivers',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminTaxesRoute = AdminTaxesRouteImport.update({
   id: '/taxes',
   path: '/taxes',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/track': typeof TrackRoute
   '/trips': typeof TripsRoute
+  '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
   '/t/$orderId': typeof TOrderIdRoute
 }
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/track': typeof TrackRoute
   '/trips': typeof TripsRoute
+  '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
   '/t/$orderId': typeof TOrderIdRoute
 }
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/track': typeof TrackRoute
   '/trips': typeof TripsRoute
+  '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
   '/t/$orderId': typeof TOrderIdRoute
 }
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/track'
     | '/trips'
+    | '/admin/drivers'
     | '/admin/taxes'
     | '/t/$orderId'
   fileRoutesByTo: FileRoutesByTo
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/track'
     | '/trips'
+    | '/admin/drivers'
     | '/admin/taxes'
     | '/t/$orderId'
   id:
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/track'
     | '/trips'
+    | '/admin/drivers'
     | '/admin/taxes'
     | '/t/$orderId'
   fileRoutesById: FileRoutesById
@@ -317,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TripsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/drivers': {
+      id: '/admin/drivers'
+      path: '/drivers'
+      fullPath: '/admin/drivers'
+      preLoaderRoute: typeof AdminDriversRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/taxes': {
       id: '/admin/taxes'
       path: '/taxes'
@@ -335,10 +354,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminDriversRoute: typeof AdminDriversRoute
   AdminTaxesRoute: typeof AdminTaxesRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminDriversRoute: AdminDriversRoute,
   AdminTaxesRoute: AdminTaxesRoute,
 }
 

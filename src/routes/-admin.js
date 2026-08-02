@@ -14,6 +14,72 @@ function authenticateAdmin(req, res, next) {
   next();
 }
 
+router.get('/drivers', authenticateAdmin, async (_req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM odofy_drivers ORDER BY created_at DESC'
+    );
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Fetch drivers error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  const allowedFields = [
+    'first_name',
+    'last_name',
+    'phone_number',
+    'vehicle_make_model',
+    'status',
+    'is_verified',
+  ];
+  const statusValues = [
+    'ACTIVE',
+    'SUSPENDED',
+    'PENDING_REVIEW',
+    'PENDING_MANUAL_APPROVAL',
+    'REJECTED',
+  ];
+
+  try {
+    const updates = [];
+    const values = [];
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        if (field === 'status' && !statusValues.includes(req.body[field])) {
+          return res.status(400).json({ error: 'Invalid driver status' });
+        }
+        if (field === 'is_verified' && typeof req.body[field] !== 'boolean') {
+          return res.status(400).json({ error: 'is_verified must be a boolean' });
+        }
+        values.push(req.body[field]);
+        updates.push(`${field} = $${values.length}`);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No valid fields provided' });
+    }
+
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE odofy_drivers SET ${updates.join(', ')} WHERE uuid = $${values.length} RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+    return res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error('Update driver error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/drivers/pending', authenticateAdmin, async (_req, res) => {
   try {
     const result = await pool.query(
