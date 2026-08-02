@@ -247,6 +247,12 @@ function AdminPage() {
             </button>
           ))}
           <a
+            href="/admin/drivers"
+            className="px-4 py-2 text-sm font-semibold rounded-lg transition whitespace-nowrap border border-msu-maroon text-msu-maroon bg-transparent hover:bg-msu-maroon/5"
+          >
+            🚗 Manage Drivers
+          </a>
+          <a
             href="/admin/taxes"
             className="px-4 py-2 text-sm font-semibold rounded-lg transition whitespace-nowrap border border-msu-maroon text-msu-maroon bg-transparent hover:bg-msu-maroon/5"
           >
