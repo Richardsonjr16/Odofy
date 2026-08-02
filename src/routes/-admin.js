@@ -31,6 +31,7 @@ router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
   const allowedFields = [
     'first_name',
     'last_name',
+    'email',
     'phone_number',
     'vehicle_make_model',
     'status',

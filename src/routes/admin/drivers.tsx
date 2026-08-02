@@ -43,6 +43,7 @@ function DriverManagementPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState({
     fullName: "",
+    email: "",
     phone: "",
     vehicle: "",
     status: "ACTIVE",
@@ -85,6 +86,7 @@ function DriverManagementPage() {
     setSelectedDriver(driver);
     setForm({
       fullName: `${driver.first_name} ${driver.last_name}`.trim(),
+      email: driver.email || "",
       phone: driver.phone_number || "",
       vehicle: driver.vehicle_make_model || "",
       status: driver.status,
@@ -115,6 +117,7 @@ function DriverManagementPage() {
         body: JSON.stringify({
           first_name: nameParts[0],
           last_name: nameParts.slice(1).join(" "),
+          email: form.email.trim() || null,
           phone_number: form.phone.trim(),
           vehicle_make_model: form.vehicle.trim() || null,
           status: form.status,
@@ -171,6 +174,7 @@ function DriverManagementPage() {
         <div className="mb-8 flex items-center justify-between"><h2 className="text-2xl font-bold text-gray-900">Edit Driver</h2><button onClick={closeEditor} className="rounded-lg p-2 text-2xl leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">×</button></div>
         <form onSubmit={saveDriver} className="space-y-5">
           <label className="block text-sm font-semibold text-gray-700">Full Name<input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" required /></label>
+          <label className="block text-sm font-semibold text-gray-700">Email Address<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" placeholder="driver@example.com" /></label>
           <label className="block text-sm font-semibold text-gray-700">Phone Number<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" required /></label>
           <label className="block text-sm font-semibold text-gray-700">Vehicle Information<input value={form.vehicle} onChange={(e) => setForm({ ...form, vehicle: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" placeholder="Make and model" /></label>
           <label className="block text-sm font-semibold text-gray-700">Review Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-msu-maroon"><option value="ACTIVE">ACTIVE</option><option value="SUSPENDED">SUSPENDED</option><option value="PENDING_REVIEW">PENDING_REVIEW</option><option value="PENDING_MANUAL_APPROVAL">PENDING_MANUAL_APPROVAL</option><option value="REJECTED">REJECTED</option></select></label>
