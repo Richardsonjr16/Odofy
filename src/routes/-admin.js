@@ -77,6 +77,11 @@ router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
     return res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error('Update driver error:', err);
+    if (err && err.code === '23505') {
+      return res
+        .status(409)
+        .json({ error: 'Email is already in use by another driver.' });
+    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
