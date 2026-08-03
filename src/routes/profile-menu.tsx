@@ -39,6 +39,7 @@ function formatDate(dateStr: string | null): string {
 
 function ProfileMenuPage() {
   const [profile, setProfile] = useState<DriverProfile | null>(null);
+  const [profileError, setProfileError] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,10 +58,14 @@ function ProfileMenuPage() {
     })
       .then((r) => r.json())
       .then((data: DriverProfile) => {
+        console.log("Profile API response:", data);
         setProfile(data);
         sessionStorage.setItem("odofy_driver_profile", JSON.stringify(data));
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("Profile fetch failed:", err);
+        setProfileError(true);
+      });
   }, []);
 
   const firstName = profile?.first_name || "DRIVER";
@@ -203,6 +208,11 @@ function ProfileMenuPage() {
         <p className="text-center text-sm font-medium" style={{ color: "#333333" }}>
           Zone: Springfield, MO Core Grid
         </p>
+        {profileError && (
+          <p className="mt-2 text-center text-sm text-red-600">
+            Unable to load the latest profile details.
+          </p>
+        )}
       </div>
 
       {/* Compliance Document Menu */}
