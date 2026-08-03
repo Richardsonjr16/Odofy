@@ -43,6 +43,10 @@ function MerchantPage() {
       : "";
 
   useEffect(() => {
+    if (!email) window.location.href = "/merchant-login";
+  }, [email]);
+
+  useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
