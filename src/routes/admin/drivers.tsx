@@ -46,6 +46,9 @@ function DriverManagementPage() {
     email: "",
     phone: "",
     vehicle: "",
+    vehicleColor: "",
+    licensePlate: "",
+    insuranceExpiration: "",
     status: "ACTIVE",
     isVerified: false,
   });
@@ -89,6 +92,9 @@ function DriverManagementPage() {
       email: driver.email || "",
       phone: driver.phone_number || "",
       vehicle: driver.vehicle_make_model || "",
+      vehicleColor: (driver as any).vehicle_color || "",
+      licensePlate: (driver as any).license_plate || "",
+      insuranceExpiration: (driver as any).insurance_expiration || "",
       status: driver.status,
       isVerified: driver.is_verified,
     });
@@ -120,6 +126,9 @@ function DriverManagementPage() {
           email: form.email.trim() || null,
           phone_number: form.phone.trim(),
           vehicle_make_model: form.vehicle.trim() || null,
+          vehicle_color: form.vehicleColor.trim() || null,
+          license_plate: form.licensePlate.trim() || null,
+          insurance_expiration: form.insuranceExpiration.trim() || null,
           status: form.status,
           is_verified: form.isVerified,
         }),
@@ -177,6 +186,9 @@ function DriverManagementPage() {
           <label className="block text-sm font-semibold text-gray-700">Email Address<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" placeholder="driver@example.com" /></label>
           <label className="block text-sm font-semibold text-gray-700">Phone Number<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" required /></label>
           <label className="block text-sm font-semibold text-gray-700">Vehicle Information<input value={form.vehicle} onChange={(e) => setForm({ ...form, vehicle: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" placeholder="Make and model" /></label>
+          <label className="block text-sm font-semibold text-gray-700">Vehicle Color<input value={form.vehicleColor} onChange={(e) => setForm({ ...form, vehicleColor: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" placeholder="e.g. Maroon" /></label>
+          <label className="block text-sm font-semibold text-gray-700">License Plate<input value={form.licensePlate} onChange={(e) => setForm({ ...form, licensePlate: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" placeholder="e.g. MO-XYZ12" /></label>
+          <label className="block text-sm font-semibold text-gray-700">Insurance Expiration<input type="date" value={form.insuranceExpiration} onChange={(e) => setForm({ ...form, insuranceExpiration: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" /></label>
           <label className="block text-sm font-semibold text-gray-700">Review Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-msu-maroon"><option value="ACTIVE">ACTIVE</option><option value="SUSPENDED">SUSPENDED</option><option value="PENDING_REVIEW">PENDING_REVIEW</option><option value="PENDING_MANUAL_APPROVAL">PENDING_MANUAL_APPROVAL</option><option value="REJECTED">REJECTED</option></select></label>
           <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-200 p-4"><span><span className="block text-sm font-semibold text-gray-700">Document Verification</span><span className="text-xs text-gray-500">Documents have been reviewed</span></span><input type="checkbox" checked={form.isVerified} onChange={(e) => setForm({ ...form, isVerified: e.target.checked })} className="h-5 w-5 accent-msu-maroon" /></label>
           <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4"><span className="text-sm font-semibold text-gray-700">Account State</span><button type="button" role="switch" aria-checked={form.status === "ACTIVE"} onClick={() => setForm({ ...form, status: form.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE" })} className={`relative h-7 w-14 rounded-full transition ${form.status === "ACTIVE" ? "bg-green-600" : "bg-gray-400"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${form.status === "ACTIVE" ? "left-8" : "left-1"}`} /></button></div>

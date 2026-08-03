@@ -104,11 +104,15 @@ function ProfileMenuPage() {
           </p>
           <p>
             <span className="font-medium">Color:</span>{" "}
-            {profile?.vehicle_color || "N/A"}
+            {profile?.vehicle_color || "Not Set"}
           </p>
           <p>
             <span className="font-medium">License Plate:</span>{" "}
-            {profile?.license_plate || "N/A"}
+            {profile?.license_plate || "Not Set"}
+          </p>
+          <p>
+            <span className="font-medium">Insurance Expiration:</span>{" "}
+            {profile?.insurance_expiration || "Not Set"}
           </p>
           <p className="text-gray-500 italic">
             Used to verify fleet identity at boutique pickup lanes
