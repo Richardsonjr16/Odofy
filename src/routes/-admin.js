@@ -34,6 +34,11 @@ router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
     'email',
     'phone_number',
     'vehicle_make_model',
+    'vehicle_color',
+    'license_plate',
+    'license_number',
+    'insurance_expiration',
+    'driver_tier',
     'status',
     'is_verified',
   ];
@@ -132,35 +137,6 @@ router.post('/drivers/:id/approve', authenticateAdmin, async (req, res) => {
     return res.status(200).json(updatedDriver);
   } catch (err) {
     console.error('Driver approval error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
-  const allowedFields = [
-    'first_name', 'last_name', 'email', 'phone_number', 'driver_tier', 'status',
-    'license_number', 'vehicle_make_model', 'vehicle_color', 'license_plate',
-    'insurance_expiration'
-  ];
-  const updates = Object.entries(req.body || {})
-    .filter(([field]) => allowedFields.includes(field));
-  if (updates.length === 0) {
-    return res.status(400).json({ error: 'No valid fields to update' });
-  }
-  try {
-    const setClause = updates.map(([field], index) => `\"${field}\" = $${index + 1}`).join(', ');
-    const values = updates.map(([, value]) => value);
-    values.push(req.params.id);
-    const result = await pool.query(
-      `UPDATE odofy_drivers SET ${setClause} WHERE uuid = $${values.length} RETURNING *`,
-      values
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Driver not found' });
-    }
-    return res.status(200).json(result.rows[0]);
-  } catch (err) {
-    console.error('Update driver error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
