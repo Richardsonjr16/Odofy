@@ -79,6 +79,26 @@ router.post('/register', async (req, res) => {
   }
 });
 
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+    const result = await pool.query(
+      'SELECT * FROM odofy_merchants WHERE contact_email = $1 AND password_hash = $2',
+      [email, hashPassword(password)]
+    );
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+    return res.status(200).json({ merchant: result.rows[0] });
+  } catch (err) {
+    console.error('Merchant login error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /orders — fetch merchant orders + Stripe transactions for the portal
 router.get('/orders', async (req, res) => {
   try {

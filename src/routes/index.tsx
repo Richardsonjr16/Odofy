@@ -40,7 +40,7 @@ function Home() {
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <a
-              href="/merchant"
+              href="/merchant-signup"
               className="w-full rounded-lg bg-msu-maroon px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-msu-maroon/80 sm:w-auto"
             >
               Register Your Shop
@@ -137,7 +137,7 @@ function Home() {
                 ))}
               </ul>
               <a
-                href="/merchant"
+                href="/merchant-signup"
                 className="mt-6 inline-block rounded-lg bg-msu-maroon px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-msu-maroon/80"
               >
                 Register Your Shop
