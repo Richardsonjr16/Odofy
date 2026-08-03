@@ -1330,6 +1330,24 @@ function DashboardPage() {
         <div className="w-full h-[40vh] relative z-10">
           <DriverMap ref={mapRef} markers={mapMarkers} currentLocation={currentLocation} />
 
+          {/* ── Vehicle Info Pill ── */}
+          {profile?.vehicle_make_model && (
+            <div className="absolute top-3 left-3 flex items-center gap-2 bg-white/85 backdrop-blur-sm rounded-full pl-2.5 pr-3 py-1.5 shadow-md z-30 select-none pointer-events-none">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                style={{ backgroundColor: profile.vehicle_color || "#9CA3AF" }}
+              />
+              <span className="text-xs font-semibold text-gray-800 whitespace-nowrap">
+                {profile.vehicle_make_model}
+              </span>
+              {profile.license_plate && (
+                <span className="text-[10px] font-bold tracking-wider text-gray-600 uppercase border border-gray-300 rounded px-1 py-px">
+                  {profile.license_plate}
+                </span>
+              )}
+            </div>
+          )}
+
           {locationError && (
             <div className="absolute bottom-4 left-4 bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium px-2 py-1 rounded-full z-20">
               {locationError}
