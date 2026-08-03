@@ -40,6 +40,8 @@ function formatDate(dateStr: string | null): string {
 function ProfileMenuPage() {
   const [profile, setProfile] = useState<DriverProfile | null>(null);
   const [profileError, setProfileError] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [hasToken, setHasToken] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,12 +53,17 @@ function ProfileMenuPage() {
           setProfile(JSON.parse(cached));
         } catch {}
       }
+      setProfileLoading(false);
       return;
     }
+    setHasToken(true);
     fetch("/api/v1/odofy/drivers/profile", {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data: DriverProfile) => {
         console.log("Profile API response:", data);
         setProfile(data);
@@ -64,8 +71,17 @@ function ProfileMenuPage() {
       })
       .catch((err) => {
         console.error("Profile fetch failed:", err);
+        // Fall back to the last cached profile so the UI never shows stale
+        // "Not Set" placeholders when the API is unreachable.
+        const cached = sessionStorage.getItem("odofy_driver_profile");
+        if (cached) {
+          try {
+            setProfile(JSON.parse(cached));
+          } catch {}
+        }
         setProfileError(true);
-      });
+      })
+      .finally(() => setProfileLoading(false));
   }, []);
 
   const firstName = profile?.first_name || "DRIVER";
@@ -208,12 +224,35 @@ function ProfileMenuPage() {
         <p className="text-center text-sm font-medium" style={{ color: "#333333" }}>
           Zone: Springfield, MO Core Grid
         </p>
+
+        {/* Loading indicator */}
+        {profileLoading && (
+          <div className="flex items-center justify-center gap-2 py-2">
+            <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+            <span className="text-sm text-gray-500">Loading profile…</span>
+          </div>
+        )}
         {profileError && (
           <p className="mt-2 text-center text-sm text-red-600">
             Unable to load the latest profile details.
           </p>
         )}
       </div>
+
+      {/* Signed-out prompt */}
+      {!hasToken && !profile && !profileLoading && (
+        <div className="mx-4 mt-6 rounded-xl bg-white p-5 text-center shadow-sm">
+          <p className="text-sm text-gray-600">
+            You must sign in first.{" "}
+            <a
+              href="/dashboard"
+              className="font-semibold text-blue-600 hover:underline"
+            >
+              Go to Dashboard →
+            </a>
+          </p>
+        </div>
+      )}
 
       {/* Compliance Document Menu */}
       <div className="mx-4 mt-6 rounded-xl bg-white shadow-sm overflow-hidden">

@@ -1486,6 +1486,23 @@ function DashboardPage() {
             <>
               {activeDeliveryStep !== "MINIMIZED" && (
                 <>
+              {/* ── Vehicle Info Row ── */}
+              {profile?.vehicle_make_model && (
+                <div className="bg-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 flex items-center gap-2 mb-4">
+                  <span
+                    className="inline-block w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                    style={{ backgroundColor: profile.vehicle_color || "#9CA3AF" }}
+                  />
+                  <span className="font-semibold text-gray-700">
+                    {profile.vehicle_make_model}
+                  </span>
+                  {profile.license_plate && (
+                    <span className="font-bold tracking-wider uppercase">
+                      {profile.license_plate}
+                    </span>
+                  )}
+                </div>
+              )}
               {/* ── "JUST FOR YOU" TARGETED OFFER ── */}
               {targetedTrip &&
                 (() => {
