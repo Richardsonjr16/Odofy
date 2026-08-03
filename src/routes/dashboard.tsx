@@ -29,9 +29,16 @@ interface DriverProfile {
   first_name: string;
   last_name: string;
   email: string;
-  phone: string;
+  phone_number?: string;
   status?: string;
   driver_tier?: string;
+  vehicle_make_model?: string | null;
+  vehicle_color?: string | null;
+  license_plate?: string | null;
+  insurance_expiration?: string | null;
+  license_number?: string | null;
+  is_verified?: boolean;
+  profile_photo_url?: string | null;
   marketHub?: string;
 }
 
