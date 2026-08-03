@@ -69,7 +69,13 @@ function EarningsHistoryPage() {
       .then((data: Trip[]) => {
         setTrips(data);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) =>
+        setError(
+          err.message === "HTTP 401"
+            ? "Your session has expired. Please return to the Dashboard and sign in again."
+            : err.message
+        )
+      )
       .finally(() => setLoading(false));
   }, []);
 

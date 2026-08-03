@@ -78,8 +78,9 @@ function ProfileMenuPage() {
           try {
             setProfile(JSON.parse(cached));
           } catch {}
+        } else {
+          setProfileError(true);
         }
-        setProfileError(true);
       })
       .finally(() => setProfileLoading(false));
   }, []);
