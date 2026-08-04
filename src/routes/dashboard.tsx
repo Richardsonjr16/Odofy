@@ -38,6 +38,7 @@ interface DriverProfile {
   needs_periodic_identity_check?: boolean;
   last_identity_check_at?: string | null;
   is_first_login?: boolean;
+  session_valid?: boolean;
 }
 
 interface AvailableTrip {
@@ -560,8 +561,22 @@ function DashboardPage() {
     fetch("/api/v1/odofy/drivers/profile", {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
-      .then((p: DriverProfile) => {
+      .then(async (r) => {
+        if (r.status === 401) {
+          // Token no longer valid (e.g. admin rotated it): force logout.
+          sessionStorage.clear();
+          setToken(null);
+          setProfile(null);
+          return;
+        }
+        const p: DriverProfile = await r.json();
+        if (p.session_valid === false) {
+          // Session invalidated by administration: force logout.
+          sessionStorage.clear();
+          setToken(null);
+          setProfile(null);
+          return;
+        }
         setProfile(p);
         sessionStorage.setItem("odofy_driver_profile", JSON.stringify(p));
         // One-time welcome walkthrough: show the onboarding modal on first
@@ -576,7 +591,11 @@ function DashboardPage() {
         const verificationExpired = p.needs_periodic_identity_check === true;
         if (verificationExpired) setIdentityModalOpen(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        sessionStorage.clear();
+        setToken(null);
+        setProfile(null);
+      });
 
     fetch("/api/v1/odofy/trips/available", {
       headers: { Authorization: `Bearer ${token}` },
