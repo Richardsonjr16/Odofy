@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { readFile } from "node:fs/promises";
+import { useEffect, useState } from "react";
 import Navbar from "~/components/Navbar";
 
 const getBusinessName = createServerFn({ method: "GET" }).handler(async () => {
@@ -19,6 +20,56 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
+function CountdownTimer() {
+  const [time, setTime] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const target = new Date("2026-08-17T08:00:00-05:00").getTime(); // Forces 8:00 AM Central Daylight Time
+
+    function tick() {
+      const now = Date.now();
+      const diff = Math.max(0, target - now);
+      setTime({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((diff / (1000 * 60)) % 60),
+        seconds: Math.floor((diff / 1000) % 60),
+      });
+    }
+
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  const boxes = [
+    { label: "DAYS", value: time.days },
+    { label: "HOURS", value: pad(time.hours) },
+    { label: "MINUTES", value: pad(time.minutes) },
+    { label: "SECONDS", value: pad(time.seconds) },
+  ];
+
+  return (
+    <div className="flex justify-center gap-2 sm:gap-4 my-6">
+      {boxes.map((box) => (
+        <div
+          key={box.label}
+          className="flex flex-col items-center bg-[#5E0009] text-white rounded-xl px-3 py-3 sm:px-5 sm:py-4 w-16 sm:w-20 shadow-lg"
+        >
+          <span className="text-2xl sm:text-3xl font-extrabold tabular-nums">
+            {box.value}
+          </span>
+          <span className="text-[10px] sm:text-xs font-semibold tracking-wider mt-1 opacity-80">
+            {box.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Home() {
   const businessName = Route.useLoaderData();
 
@@ -29,6 +80,11 @@ function Home() {
       {/* Hero */}
       <section className="px-6 pb-16 pt-12 sm:px-8 sm:pb-24 sm:pt-20 lg:px-12 lg:pb-32 lg:pt-28">
         <div className="mx-auto max-w-3xl text-center">
+          <img
+            src="/brand_mark.png"
+            alt="Odofy"
+            className="mx-auto mb-6 h-20 w-auto sm:h-24 lg:h-28"
+          />
           <h1 className="text-4xl font-extrabold tracking-tight text-msu-maroon sm:text-5xl lg:text-6xl">
             Deliveries, simplified.
           </h1>
@@ -52,6 +108,12 @@ function Home() {
               Become a Driver
             </a>
           </div>
+
+          {/* Countdown Timer */}
+          <CountdownTimer />
+          <p className="text-[#5E0009] font-bold text-center text-sm tracking-wider uppercase mt-4 animate-pulse">
+            Final Phase: Launching August 17 — Lock in Your Pilot Accounts
+          </p>
         </div>
       </section>
 

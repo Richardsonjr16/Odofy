@@ -16,8 +16,8 @@ export default function Navbar() {
 
   return (
     <nav className="flex items-center justify-between px-6 py-4 sm:px-8 lg:px-12 border-b border-gray-100 bg-white">
-      <a href="/" className="text-xl font-bold text-msu-maroon">
-        Odofy
+      <a href="/" className="flex items-center">
+        <img src="/brand_mark.png" alt="Odofy" className="h-8 w-auto" />
       </a>
       <div className="relative" ref={ref}>
         <button
