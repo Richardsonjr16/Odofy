@@ -180,13 +180,15 @@ router.get('/profile', authenticateDriver, async (req, res) => {
             profile_photo_url, license_photo_url, insurance_proof_url,
             vehicle_make_model, created_at, is_verified, insurance_expiration,
             license_number, vehicle_color, license_plate, driver_tier, backup_email,
-            needs_periodic_identity_check, last_identity_check_at, is_first_login } = req.driver;
+            needs_periodic_identity_check, last_identity_check_at, is_first_login,
+            session_valid } = req.driver;
     return res.status(200).json({
       uuid, first_name, last_name, phone_number, email, status,
       profile_photo_url, license_photo_url, insurance_proof_url,
       vehicle_make_model, created_at, is_verified, insurance_expiration,
       license_number, vehicle_color, license_plate, driver_tier, backup_email,
-      needs_periodic_identity_check, last_identity_check_at, is_first_login
+      needs_periodic_identity_check, last_identity_check_at, is_first_login,
+      session_valid
     });
   } catch (err) {
     console.error('Driver profile error:', err);
