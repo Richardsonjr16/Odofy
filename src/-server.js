@@ -16,6 +16,7 @@ const checkoutRoutes = require('./routes/api/checkout/-create-session');
 const stripeWebhookRoutes = require('./routes/api/webhooks/-stripe');
 const verifyIdentityRoutes = require('./routes/api/-verify-identity');
 const { startHoldReleaser } = require('./services/holdReleaser');
+const { startIdentityReleaser } = require('./services/identityReleaser');
 
 const app = express();
 
@@ -57,5 +58,6 @@ if (require.main === module) {
   app.listen(port, () => {
     console.log(`Odofy backend listening on port ${port}`);
     startHoldReleaser();
+    startIdentityReleaser();
   });
 }
