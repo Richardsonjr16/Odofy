@@ -26,6 +26,27 @@ router.get('/drivers', authenticateAdmin, async (_req, res) => {
   }
 });
 
+// Rolling 14-day periodic identity re-verification: flag drivers whose last
+// successful identity check is stale so their dashboard prompts a new check.
+// Intended to be called by an external cron/scheduler; requires the admin API
+// key (x-api-key header). Accepts both GET and POST for cron compatibility.
+const resetIdentityFlagsHandler = async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE odofy_drivers
+       SET needs_periodic_identity_check = true
+       WHERE needs_periodic_identity_check = false
+         AND last_identity_check_at < NOW() - INTERVAL '14 days'`
+    );
+    return res.status(200).json({ updated: result.rowCount });
+  } catch (err) {
+    console.error('Reset identity flags error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+router.get('/reset-identity-flags', authenticateAdmin, resetIdentityFlagsHandler);
+router.post('/reset-identity-flags', authenticateAdmin, resetIdentityFlagsHandler);
+
 router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
   const { id } = req.params;
   const allowedFields = [
@@ -87,6 +108,20 @@ router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
         .status(409)
         .json({ error: 'Email is already in use by another driver.' });
     }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/drivers/:id/identity-checks', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, driver_id, front_view_url, left_view_url, right_view_url, status, created_at
+       FROM drivers_identity_checks WHERE driver_id = $1 ORDER BY created_at DESC`,
+      [req.params.id]
+    );
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Fetch identity checks error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
