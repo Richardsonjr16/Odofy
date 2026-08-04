@@ -32,14 +32,11 @@ interface DriverProfile {
   phone_number?: string;
   status?: string;
   driver_tier?: string;
-  vehicle_make_model?: string | null;
-  vehicle_color?: string | null;
-  license_plate?: string | null;
-  insurance_expiration?: string | null;
-  license_number?: string | null;
   is_verified?: boolean;
   profile_photo_url?: string | null;
   marketHub?: string;
+  needs_periodic_identity_check?: boolean;
+  last_identity_check_at?: string | null;
 }
 
 interface AvailableTrip {
@@ -354,6 +351,11 @@ function DashboardPage() {
   const [targetedTimer, setTargetedTimer] = useState(60);
   const [onlineDrivers, setOnlineDrivers] = useState<number | null>(null);
   const [onlineDriversError, setOnlineDriversError] = useState(false);
+  const [identityModalOpen, setIdentityModalOpen] = useState(false);
+  const [identitySubmitting, setIdentitySubmitting] = useState(false);
+  const [identitySuccess, setIdentitySuccess] = useState(false);
+  const [identityError, setIdentityError] = useState<string | null>(null);
+  const [identityFiles, setIdentityFiles] = useState<Record<string, File | null>>({ front: null, left: null, right: null });
 
   useEffect(() => {
     const fetchOnlineDrivers = () => {
@@ -381,7 +383,14 @@ function DashboardPage() {
   const [isOdofyNowActive, setIsOdofyNowActive] = useState(
     () => (typeof window !== "undefined" ? sessionStorage.getItem("odofy_now_active") : null) === "true"
   );
-  const [currentTab, setCurrentTab] = useState('home');
+  const [currentTab, setCurrentTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "trips") return "trips";
+    }
+    return "home";
+  });
   const [showAlertBanner, setShowAlertBanner] = useState(false);
   const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
   const targetedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -553,6 +562,11 @@ function DashboardPage() {
       .then((p: DriverProfile) => {
         setProfile(p);
         sessionStorage.setItem("odofy_driver_profile", JSON.stringify(p));
+        // Rolling 14-day periodic identity verification: the backend flags
+        // needs_periodic_identity_check when the driver's last identity check
+        // is stale, and clears it on a successful re-verification upload.
+        const verificationExpired = p.needs_periodic_identity_check === true;
+        if (verificationExpired) setIdentityModalOpen(true);
       })
       .catch(() => {});
 
@@ -1186,9 +1200,71 @@ function DashboardPage() {
     );
   }
 
+  const submitIdentityCheck = async () => {
+    if (!profile?.uuid || !identityFiles.front || !identityFiles.left || !identityFiles.right) {
+      setIdentityError("Please select all three photos before submitting.");
+      return;
+    }
+    setIdentitySubmitting(true);
+    setIdentityError(null);
+    const formData = new FormData();
+    formData.append("driver_id", profile.uuid);
+    formData.append("front", identityFiles.front);
+    formData.append("left", identityFiles.left);
+    formData.append("right", identityFiles.right);
+    try {
+      const response = await fetch("/api/v1/odofy/drivers/verify-identity", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to submit identity check");
+      setIdentitySuccess(true);
+      setIdentityModalOpen(false);
+      // Clear the periodic flag locally so the modal closes instantly and the
+      // driver sees their map right away (no wait for a profile refetch).
+      setProfile((current) => {
+        if (!current) return current;
+        const updated = { ...current, needs_periodic_identity_check: false };
+        sessionStorage.setItem("odofy_driver_profile", JSON.stringify(updated));
+        return updated;
+      });
+    } catch (error) {
+      setIdentityError(error instanceof Error ? error.message : "Unable to submit identity check");
+    } finally {
+      setIdentitySubmitting(false);
+    }
+  };
+
   // ── NORMAL DASHBOARD ──
   return (
     <>
+      {identityModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#5E0009] text-xl text-white">O</div>
+              <h2 className="text-xl font-extrabold text-gray-900">Identity Check</h2>
+              <p className="mt-2 text-sm leading-relaxed text-gray-600">Identity Check: Take a clear Front, Left, and Right view selfie to verify your driver profile.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[{ key: "front", label: "Front" }, { key: "left", label: "Left" }, { key: "right", label: "Right" }].map(({ key, label }) => (
+                <label key={key} className="cursor-pointer text-center">
+                  <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#5E0009]">{label}</span>
+                  <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-[#5E0009]/30 bg-gray-50">
+                    {identityFiles[key] ? <img src={URL.createObjectURL(identityFiles[key]!)} alt={`${label} preview`} className="h-full w-full object-cover" /> : <span className="text-2xl text-[#5E0009]">＋</span>}
+                  </div>
+                  <input type="file" accept="image/*" capture="user" name={key} className="sr-only" onChange={(event) => setIdentityFiles((current) => ({ ...current, [key]: event.target.files?.[0] || null }))} />
+                </label>
+              ))}
+            </div>
+            {identityError && <p className="mt-4 text-center text-sm font-medium text-red-600">{identityError}</p>}
+            <button type="button" onClick={submitIdentityCheck} disabled={identitySubmitting} className="mt-6 w-full rounded-xl bg-[#5E0009] py-3.5 text-sm font-bold text-white transition hover:bg-[#470007] disabled:opacity-50">{identitySubmitting ? "Submitting…" : "Submit Identity Check"}</button>
+          </div>
+        </div>
+      )}
+      {identitySuccess && <div className="fixed left-4 right-4 top-4 z-[70] rounded-xl bg-green-600 px-4 py-3 text-center text-sm font-bold text-white shadow-lg">Identity check submitted successfully.</div>}
       {showAlertBanner && (
         <div
           onClick={() => {
@@ -1330,24 +1406,6 @@ function DashboardPage() {
         <div className="w-full h-[40vh] relative z-10">
           <DriverMap ref={mapRef} markers={mapMarkers} currentLocation={currentLocation} />
 
-          {/* ── Vehicle Info Pill ── */}
-          {profile?.vehicle_make_model && (
-            <div className="absolute top-3 left-3 flex items-center gap-2 bg-white/85 backdrop-blur-sm rounded-full pl-2.5 pr-3 py-1.5 shadow-md z-30 select-none pointer-events-none">
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
-                style={{ backgroundColor: profile.vehicle_color || "#9CA3AF" }}
-              />
-              <span className="text-xs font-semibold text-gray-800 whitespace-nowrap">
-                {profile.vehicle_make_model}
-              </span>
-              {profile.license_plate && (
-                <span className="text-[10px] font-bold tracking-wider text-gray-600 uppercase border border-gray-300 rounded px-1 py-px">
-                  {profile.license_plate}
-                </span>
-              )}
-            </div>
-          )}
-
           {locationError && (
             <div className="absolute bottom-4 left-4 bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium px-2 py-1 rounded-full z-20">
               {locationError}
@@ -1388,81 +1446,33 @@ function DashboardPage() {
 
           {/* ── LOADING STATE: Pickup Checklist ── */}
           {activeDeliveryStep === "LOADING" ? (
-            <div className="flex-1 flex flex-col -mx-4">
-              {/* Sticky header */}
-              <div className="w-full bg-white border-b border-gray-100 py-3 px-4 flex items-center justify-between sticky top-0 z-30">
-                <span className="text-sm font-semibold text-gray-700">
-                  {pickupItems.length} items (
-                  {pickupItems.reduce((sum, i) => sum + (i.quantity || 1), 0)}{" "}
-                  qty)
-                </span>
-                <span className="text-xs text-gray-400">
-                  {checkedItems.size}/{pickupItems.length} checked
-                </span>
+            <div className="flex-1 flex flex-col justify-center px-4">
+              {/* Merchant Card Summary */}
+              <div className="bg-gray-50 border border-gray-100 rounded-xl p-5 my-4 text-center">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                  Merchant Pickup
+                </p>
+                <p className="text-2xl font-extrabold text-gray-900">
+                  Order: {claimedTrip?.order_number || claimedTrip?.uuid?.slice(0, 6) || "—"}
+                </p>
+                <p className="text-lg font-bold text-gray-700 mt-1">
+                  Customer: {claimedTrip?.customer_name || "Customer"}
+                </p>
+                <p className="text-[11px] font-medium text-gray-400 mt-3 leading-relaxed">
+                  Ensure bag tag label matches the Order ID above before loading vehicle.
+                </p>
               </div>
 
-              {/* Scrollable item list */}
-              <div className="flex-1 overflow-y-auto">
-                {pickupItems.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="w-full bg-white border-b border-gray-100 p-4 flex gap-4 items-start"
-                  >
-                    <img
-                      src={item.image_url || PLACEHOLDER_IMG}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          PLACEHOLDER_IMG;
-                      }}
-                      alt={item.title || item.name || "Package"}
-                      className="w-16 h-16 rounded-xl bg-gray-50 flex-shrink-0 object-contain p-1 border border-gray-100/50 shadow-sm"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-800 leading-snug">
-                        {item.title || item.name}
-                      </p>
-                      <p className="text-base font-bold text-gray-900 mt-1.5">
-                        Qty: {item.quantity || 1}
-                      </p>
-                    </div>
-                    <div
-                      onClick={() => {
-                        const next = new Set(checkedItems);
-                        next.has(String(idx))
-                          ? next.delete(String(idx))
-                          : next.add(String(idx));
-                        setCheckedItems(next);
-                      }}
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors flex-shrink-0 ${
-                        checkedItems.has(String(idx))
-                          ? ""
-                          : "border-gray-200"
-                      }`}
-                      style={checkedItems.has(String(idx)) ? { backgroundColor: currentMarketColors.primary, borderColor: currentMarketColors.primary } : undefined}
-                    >
-                      {checkedItems.has(String(idx)) && (
-                        <span className="text-white text-xs">✓</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Slide to confirm pickup */}
-              <div className="px-4 pb-4 pt-2">
-                <SlideTrack
-                  label="SLIDE TO CONFIRM PICKUP & SORT"
-                  onSlideComplete={handleSlideConfirmPickupComplete}
-                  disabled={checkedItems.size < pickupItems.length}
-                  trackColor={currentMarketColors.primary}
-                  thumbColor={darkPrimary}
-                />
-                {checkedItems.size < pickupItems.length && (
-                  <p className="text-[10px] font-medium text-gray-400 text-center mt-2">
-                    Check all {pickupItems.length} items to enable
-                  </p>
-                )}
-              </div>
+              {/* Confirm Button */}
+              <button
+                onClick={() => {
+                  setActiveDeliveryStep("EN_ROUTE");
+                  setCheckedItems(new Set());
+                }}
+                className="w-full bg-[#5E0009] text-white font-bold py-4 rounded-xl transition-all shadow-md active:scale-[0.98]"
+              >
+                Confirm Order Loaded &amp; Start Route
+              </button>
             </div>
           ) : claimedTrip && activeDeliveryStep === "IDLE" ? (
             /* ── CLAIMED STATE: Slide to Start Trip ── */
@@ -1486,23 +1496,6 @@ function DashboardPage() {
             <>
               {activeDeliveryStep !== "MINIMIZED" && (
                 <>
-              {/* ── Vehicle Info Row ── */}
-              {profile?.vehicle_make_model && (
-                <div className="bg-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 flex items-center gap-2 mb-4">
-                  <span
-                    className="inline-block w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
-                    style={{ backgroundColor: profile.vehicle_color || "#9CA3AF" }}
-                  />
-                  <span className="font-semibold text-gray-700">
-                    {profile.vehicle_make_model}
-                  </span>
-                  {profile.license_plate && (
-                    <span className="font-bold tracking-wider uppercase">
-                      {profile.license_plate}
-                    </span>
-                  )}
-                </div>
-              )}
               {/* ── "JUST FOR YOU" TARGETED OFFER ── */}
               {targetedTrip &&
                 (() => {
