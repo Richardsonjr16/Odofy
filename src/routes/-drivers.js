@@ -180,16 +180,26 @@ router.get('/profile', authenticateDriver, async (req, res) => {
             profile_photo_url, license_photo_url, insurance_proof_url,
             vehicle_make_model, created_at, is_verified, insurance_expiration,
             license_number, vehicle_color, license_plate, driver_tier, backup_email,
-            needs_periodic_identity_check, last_identity_check_at } = req.driver;
+            needs_periodic_identity_check, last_identity_check_at, is_first_login } = req.driver;
     return res.status(200).json({
       uuid, first_name, last_name, phone_number, email, status,
       profile_photo_url, license_photo_url, insurance_proof_url,
       vehicle_make_model, created_at, is_verified, insurance_expiration,
       license_number, vehicle_color, license_plate, driver_tier, backup_email,
-      needs_periodic_identity_check, last_identity_check_at
+      needs_periodic_identity_check, last_identity_check_at, is_first_login
     });
   } catch (err) {
     console.error('Driver profile error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/clear-first-login', authenticateDriver, async (req, res) => {
+  try {
+    await pool.query('UPDATE odofy_drivers SET is_first_login = false WHERE uuid = $1', [req.driver.uuid]);
+    return res.status(200).json({ status: 'ok', is_first_login: false });
+  } catch (err) {
+    console.error('Clear first login error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
