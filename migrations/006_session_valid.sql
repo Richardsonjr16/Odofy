@@ -1,0 +1,1 @@
+ALTER TABLE odofy_drivers ADD COLUMN IF NOT EXISTS session_valid BOOLEAN DEFAULT true;

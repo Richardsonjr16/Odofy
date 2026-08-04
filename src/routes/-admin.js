@@ -47,6 +47,46 @@ const resetIdentityFlagsHandler = async (_req, res) => {
 router.get('/reset-identity-flags', authenticateAdmin, resetIdentityFlagsHandler);
 router.post('/reset-identity-flags', authenticateAdmin, resetIdentityFlagsHandler);
 
+// Force-reset a driver's auth token: rotate the token, invalidate the current
+// session, and notify the driver via SMS so they re-authenticate. The dashboard
+// logs the driver out via the 401 from the rotated token and/or the
+// session_valid = false flag returned by the profile endpoint.
+router.post('/drivers/:id/reset-token', authenticateAdmin, async (req, res) => {
+  try {
+    const driverId = req.params.id;
+
+    const driverResult = await pool.query(
+      'SELECT * FROM odofy_drivers WHERE uuid = $1',
+      [driverId]
+    );
+    if (driverResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+    const driver = driverResult.rows[0];
+
+    const crypto = require('crypto');
+    const newToken = crypto.randomBytes(32).toString('hex');
+
+    await pool.query(
+      'UPDATE odofy_drivers SET auth_token = $1, session_valid = false WHERE uuid = $2',
+      [newToken, driverId]
+    );
+
+    sendSms(
+      driver.phone_number,
+      'Odofy Security Alert: Your active login token has been reset by administration. Your session has been securely terminated. Please re-authenticate at https://getodofy.com or contact support@getodofy.com.'
+    ).catch((err) => console.error('Token reset SMS failed:', err));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Driver session invalidated and SMS alert sent successfully.',
+    });
+  } catch (err) {
+    console.error('Token reset error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
   const { id } = req.params;
   const allowedFields = [
