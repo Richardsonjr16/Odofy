@@ -14,6 +14,7 @@ const notifyDriversRoutes = require('./routes/api/-notify-drivers');
 const webhookOrdersRoutes = require('./routes/api/webhooks/-orders');
 const checkoutRoutes = require('./routes/api/checkout/-create-session');
 const stripeWebhookRoutes = require('./routes/api/webhooks/-stripe');
+const verifyIdentityRoutes = require('./routes/api/-verify-identity');
 const { startHoldReleaser } = require('./services/holdReleaser');
 
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/v1/odofy/drivers', driversRoutes);
 app.use('/api/v1/odofy/merchants', merchantsRoutes);
 app.use('/api/v1/odofy/admin', adminRoutes);
 app.use('/api/v1/odofy/notify-drivers', notifyDriversRoutes);
+app.use('/api/v1/odofy/drivers', verifyIdentityRoutes);
 app.use('/api/v1/odofy/webhooks/orders', webhookOrdersRoutes);
 app.use('/api/v1/odofy/checkout', checkoutRoutes);
 app.use(

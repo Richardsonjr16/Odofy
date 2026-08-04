@@ -91,6 +91,20 @@ router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
   }
 });
 
+router.get('/drivers/:id/identity-checks', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, driver_id, front_view_url, left_view_url, right_view_url, status, created_at
+       FROM drivers_identity_checks WHERE driver_id = $1 ORDER BY created_at DESC`,
+      [req.params.id]
+    );
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Fetch identity checks error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/drivers/pending', authenticateAdmin, async (_req, res) => {
   try {
     const result = await pool.query(
