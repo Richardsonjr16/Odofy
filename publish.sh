@@ -9,6 +9,42 @@ cd "$(dirname "$0")"
 umask 002
 mkdir -p .run
 
+# ── Express backend (port 3001) — start it BEFORE the frontend, since the site
+# proxies every /api/* request to it and would otherwise serve 503s.
+
+# Free port 3001 across user boundaries.
+for _ in $(seq 1 25); do
+  pids=$(sudo lsof -t -iTCP:3001 -sTCP:LISTEN 2>/dev/null || true)
+  if [ -z "$pids" ]; then break; fi
+  sudo kill $pids 2>/dev/null || true
+  sleep 0.2
+done
+
+# Install backend deps (in case they're missing) and start the backend detached.
+# The backend must be run from its own directory (code uses relative paths) and
+# with `bun` (it uses CommonJS require() while package.json is "type": "module").
+(
+  cd /home/team/shared/odofy-backend
+  mkdir -p .run
+  bun install
+  setsid nohup bun run src/-server.js > .run/backend.log 2>&1 < /dev/null &
+)
+
+# Wait for the backend to actually answer before starting the frontend.
+backend_up=""
+for _ in $(seq 1 50); do
+  if curl -sf -o /dev/null http://localhost:3001/; then
+    backend_up=1
+    break
+  fi
+  sleep 0.2
+done
+if [ -z "$backend_up" ]; then
+  echo "warning: backend isn't responding on port 3001 — check odofy-backend/.run/backend.log" >&2
+  exit 1
+fi
+echo "backend up on port 3001"
+
 # Free port 3000 across user boundaries.
 for _ in $(seq 1 25); do
   pids=$(sudo lsof -t -iTCP:3000 -sTCP:LISTEN 2>/dev/null || true)
