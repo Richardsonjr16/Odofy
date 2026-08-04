@@ -207,6 +207,27 @@ function DriverManagementPage() {
           <label className="block text-sm font-semibold text-gray-700">Review Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-msu-maroon"><option value="ACTIVE">ACTIVE</option><option value="SUSPENDED">SUSPENDED</option><option value="PENDING_REVIEW">PENDING_REVIEW</option><option value="PENDING_MANUAL_APPROVAL">PENDING_MANUAL_APPROVAL</option><option value="REJECTED">REJECTED</option></select></label>
           <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-200 p-4"><span><span className="block text-sm font-semibold text-gray-700">Document Verification</span><span className="text-xs text-gray-500">Documents have been reviewed</span></span><input type="checkbox" checked={form.isVerified} onChange={(e) => setForm({ ...form, isVerified: e.target.checked })} className="h-5 w-5 accent-msu-maroon" /></label>
           {identityChecks.length > 0 && (() => { const latest = identityChecks[0]; return <section className="rounded-lg border border-gray-200 p-4"><div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-gray-800">Identity Check</h3><span className={`rounded-full px-2 py-1 text-xs font-bold ${latest.status === "APPROVED" ? "bg-green-100 text-green-700" : latest.status === "FLAGGED" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>{latest.status}</span></div><div className="grid grid-cols-3 gap-2">{[[latest.front_view_url, "Front"], [latest.left_view_url, "Left"], [latest.right_view_url, "Right"]].map(([url, label]) => <a key={label} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`${label} identity check`} className="aspect-square w-full rounded object-cover" /></a>)}</div><p className="mt-3 text-xs text-gray-500">Submitted {new Date(latest.created_at).toLocaleString()}</p></section>; })()}
+          <button
+            type="button"
+            onClick={async () => {
+              if (!selectedDriver || !confirm('Are you sure you want to force-reset this driver\'s session token? They will be logged out and notified via SMS.')) return;
+              try {
+                const response = await fetch(`/api/v1/odofy/admin/drivers/${selectedDriver.uuid}/reset-token`, {
+                  method: 'POST',
+                  headers: { 'x-api-key': adminKey },
+                });
+                if (response.status === 401) { handleUnauthorized(); return; }
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.error || 'Token reset failed');
+                setSuccess('Authentication token updated cleanly and driver notified.');
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Token reset failed');
+              }
+            }}
+            className="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-xl border border-red-700 hover:bg-red-700 transition-all active:scale-[0.98] mt-4"
+          >
+            🔒 Force Reset Session Token
+          </button>
           <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4"><span className="text-sm font-semibold text-gray-700">Account State</span><button type="button" role="switch" aria-checked={form.status === "ACTIVE"} onClick={() => setForm({ ...form, status: form.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE" })} className={`relative h-7 w-14 rounded-full transition ${form.status === "ACTIVE" ? "bg-green-600" : "bg-gray-400"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${form.status === "ACTIVE" ? "left-8" : "left-1"}`} /></button></div>
           <div className="flex gap-3 border-t border-gray-100 pt-6"><button type="button" onClick={closeEditor} className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 font-semibold text-gray-700 hover:bg-gray-50">Cancel</button><button type="submit" disabled={saving} className="flex-1 rounded-lg bg-msu-maroon px-4 py-2.5 font-semibold text-white hover:bg-msu-maroon/90 disabled:opacity-50">{saving ? "Saving…" : "Save Changes"}</button></div>
         </form>
