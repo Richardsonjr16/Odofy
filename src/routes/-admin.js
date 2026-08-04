@@ -26,6 +26,27 @@ router.get('/drivers', authenticateAdmin, async (_req, res) => {
   }
 });
 
+// Rolling 14-day periodic identity re-verification: flag drivers whose last
+// successful identity check is stale so their dashboard prompts a new check.
+// Intended to be called by an external cron/scheduler; requires the admin API
+// key (x-api-key header). Accepts both GET and POST for cron compatibility.
+const resetIdentityFlagsHandler = async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE odofy_drivers
+       SET needs_periodic_identity_check = true
+       WHERE needs_periodic_identity_check = false
+         AND last_identity_check_at < NOW() - INTERVAL '14 days'`
+    );
+    return res.status(200).json({ updated: result.rowCount });
+  } catch (err) {
+    console.error('Reset identity flags error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+router.get('/reset-identity-flags', authenticateAdmin, resetIdentityFlagsHandler);
+router.post('/reset-identity-flags', authenticateAdmin, resetIdentityFlagsHandler);
+
 router.patch('/drivers/:id', authenticateAdmin, async (req, res) => {
   const { id } = req.params;
   const allowedFields = [

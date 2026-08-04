@@ -57,6 +57,12 @@ router.post('/verify-identity', authenticateDriver, (req, res, next) => fields(r
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [uuidv4(), driverId, ...urls]
     );
+    await pool.query(
+      `UPDATE odofy_drivers
+       SET needs_periodic_identity_check = false, last_identity_check_at = NOW()
+       WHERE uuid = $1`,
+      [driverId]
+    );
     return res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('Identity verification upload error:', err);

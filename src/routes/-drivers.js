@@ -179,12 +179,14 @@ router.get('/profile', authenticateDriver, async (req, res) => {
     const { uuid, first_name, last_name, phone_number, email, status,
             profile_photo_url, license_photo_url, insurance_proof_url,
             vehicle_make_model, created_at, is_verified, insurance_expiration,
-            license_number, vehicle_color, license_plate, driver_tier, backup_email } = req.driver;
+            license_number, vehicle_color, license_plate, driver_tier, backup_email,
+            needs_periodic_identity_check, last_identity_check_at } = req.driver;
     return res.status(200).json({
       uuid, first_name, last_name, phone_number, email, status,
       profile_photo_url, license_photo_url, insurance_proof_url,
       vehicle_make_model, created_at, is_verified, insurance_expiration,
-      license_number, vehicle_color, license_plate, driver_tier, backup_email
+      license_number, vehicle_color, license_plate, driver_tier, backup_email,
+      needs_periodic_identity_check, last_identity_check_at
     });
   } catch (err) {
     console.error('Driver profile error:', err);
