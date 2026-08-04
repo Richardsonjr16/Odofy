@@ -37,6 +37,7 @@ interface DriverProfile {
   marketHub?: string;
   needs_periodic_identity_check?: boolean;
   last_identity_check_at?: string | null;
+  is_first_login?: boolean;
 }
 
 interface AvailableTrip {
@@ -352,6 +353,7 @@ function DashboardPage() {
   const [onlineDrivers, setOnlineDrivers] = useState<number | null>(null);
   const [onlineDriversError, setOnlineDriversError] = useState(false);
   const [identityModalOpen, setIdentityModalOpen] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [identitySubmitting, setIdentitySubmitting] = useState(false);
   const [identitySuccess, setIdentitySuccess] = useState(false);
   const [identityError, setIdentityError] = useState<string | null>(null);
@@ -562,6 +564,12 @@ function DashboardPage() {
       .then((p: DriverProfile) => {
         setProfile(p);
         sessionStorage.setItem("odofy_driver_profile", JSON.stringify(p));
+        // One-time welcome walkthrough: show the onboarding modal on first
+        // login only; the backend clears is_first_login permanently when the
+        // driver taps "Got It, Let's Drive!".
+        if (p.is_first_login === true) {
+          setShowWelcome(true);
+        }
         // Rolling 14-day periodic identity verification: the backend flags
         // needs_periodic_identity_check when the driver's last identity check
         // is stale, and clears it on a successful re-verification upload.
@@ -1240,6 +1248,36 @@ function DashboardPage() {
   // ── NORMAL DASHBOARD ──
   return (
     <>
+      {showWelcome && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-2xl p-6 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-black text-[#5E0009] text-center mb-4">🐻 Welcome to the Bear Fleet Crew!</h2>
+            <div className="space-y-3 text-sm text-gray-700">
+              <p>🗺️ 1. GO ONLINE: Tap 'Odofy Now' and select your shift duration from the dropdown menu to start driving.</p>
+              <p>🥇 2. JUST FOR YOU: You get 60 secs to claim exclusive offers before they blast out to the general fleet.</p>
+              <p>📦 3. ONE-TAP PICKUP: Match the bag ID tag at the store counter. No need to check individual grocery items.</p>
+              <p>🛑 4. GEOCONTROLS: You must be inside a strict 150-ft radius of BOTH the store and the customer doorstep to tap check-in actions or submit photos.</p>
+            </div>
+            <div className="bg-[#5E0009]/5 text-[#5E0009] rounded-xl p-3 my-4 text-xs font-bold text-center">
+              🚭 CRITICAL REQUIREMENT: All courier vehicles and cargo trunks must maintain a 100% smoke-free status at all times.
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  await fetch("/api/v1/odofy/drivers/clear-first-login", {
+                    method: "PUT",
+                    headers: { Authorization: `Bearer ${token}` },
+                  });
+                } catch (_) {}
+                setShowWelcome(false);
+              }}
+              className="w-full bg-[#5E0009] text-white font-extrabold py-4 rounded-xl shadow-md transition-all active:scale-[0.99]"
+            >
+              Got It, Let's Drive!
+            </button>
+          </div>
+        </div>
+      )}
       {identityModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">

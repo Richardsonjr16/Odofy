@@ -56,7 +56,7 @@ const TOS_SECTIONS = [
 const CHECKBOX_LABEL =
   "I have read, understand, and legally consent to the Odofy Driver Terms of Service, including the strict 100% smoke-free cargo mandate, and verify that my uploaded license and insurance documents are active and accurate.";
 
-const REGISTER_URL = `https://getodofy.com/api/v1/odofy/drivers/register`;
+const REGISTER_URL = `/api/v1/odofy/drivers/register`;
 
 const FILE_BLOCK_CLASS =
   "mt-1.5 block w-full rounded-lg border-2 border-slate-300 p-4 text-sm cursor-pointer hover:border-slate-400 transition";
@@ -307,9 +307,10 @@ function RegisterPage() {
                 required
                 value={form.email}
                 onChange={handleChange}
-                placeholder="you@example.com"
+                placeholder="yourname@live.missouristate.edu"
                 className={fieldClass}
               />
+              <p className="text-[#5E0009] text-[11px] font-semibold mt-1 tracking-wide">* Required: You must register with your active college .edu email address to verify student driver status.</p>
             </div>
 
             {isStudentEmail && (
@@ -436,8 +437,9 @@ function RegisterPage() {
                 <input
                   ref={profileRef}
                   type="file"
-                  accept=".jpg,.jpeg,.png,image/*"
-                  capture="environment"
+                  accept="image/*"
+                  capture="user"
+                  id="profile_photo"
                   className="hidden"
                   onChange={(e) => handleFileChange(e, setProfileFileName)}
                 />

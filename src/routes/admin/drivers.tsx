@@ -4,6 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 const ADMIN_KEY_STORAGE = "odofy_admin_key";
 const API_URL = "/api/v1/odofy/admin/drivers";
 
+interface IdentityCheck {
+  id: string;
+  front_view_url: string;
+  left_view_url: string;
+  right_view_url: string;
+  status: "PENDING" | "APPROVED" | "FLAGGED";
+  created_at: string;
+}
+
 interface Driver {
   uuid: string;
   first_name: string;
@@ -41,6 +50,7 @@ function DriverManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
+  const [identityChecks, setIdentityChecks] = useState<IdentityCheck[]>([]);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -99,7 +109,12 @@ function DriverManagementPage() {
       isVerified: driver.is_verified,
     });
     setSuccess(null);
+    setIdentityChecks([]);
     setIsEditDrawerOpen(true);
+    fetch(`${API_URL}/${driver.uuid}/identity-checks`, { headers: { "x-api-key": adminKey } })
+      .then((response) => response.ok ? response.json() : [])
+      .then((checks: IdentityCheck[]) => setIdentityChecks(Array.isArray(checks) ? checks : []))
+      .catch(() => setIdentityChecks([]));
   };
 
   const closeEditor = () => {
@@ -191,6 +206,7 @@ function DriverManagementPage() {
           <label className="block text-sm font-semibold text-gray-700">Insurance Expiration<input type="date" value={form.insuranceExpiration} onChange={(e) => setForm({ ...form, insuranceExpiration: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-normal outline-none focus:border-msu-maroon focus:ring-2 focus:ring-msu-maroon/20" /></label>
           <label className="block text-sm font-semibold text-gray-700">Review Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-msu-maroon"><option value="ACTIVE">ACTIVE</option><option value="SUSPENDED">SUSPENDED</option><option value="PENDING_REVIEW">PENDING_REVIEW</option><option value="PENDING_MANUAL_APPROVAL">PENDING_MANUAL_APPROVAL</option><option value="REJECTED">REJECTED</option></select></label>
           <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-200 p-4"><span><span className="block text-sm font-semibold text-gray-700">Document Verification</span><span className="text-xs text-gray-500">Documents have been reviewed</span></span><input type="checkbox" checked={form.isVerified} onChange={(e) => setForm({ ...form, isVerified: e.target.checked })} className="h-5 w-5 accent-msu-maroon" /></label>
+          {identityChecks.length > 0 && (() => { const latest = identityChecks[0]; return <section className="rounded-lg border border-gray-200 p-4"><div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-gray-800">Identity Check</h3><span className={`rounded-full px-2 py-1 text-xs font-bold ${latest.status === "APPROVED" ? "bg-green-100 text-green-700" : latest.status === "FLAGGED" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>{latest.status}</span></div><div className="grid grid-cols-3 gap-2">{[[latest.front_view_url, "Front"], [latest.left_view_url, "Left"], [latest.right_view_url, "Right"]].map(([url, label]) => <a key={label} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`${label} identity check`} className="aspect-square w-full rounded object-cover" /></a>)}</div><p className="mt-3 text-xs text-gray-500">Submitted {new Date(latest.created_at).toLocaleString()}</p></section>; })()}
           <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4"><span className="text-sm font-semibold text-gray-700">Account State</span><button type="button" role="switch" aria-checked={form.status === "ACTIVE"} onClick={() => setForm({ ...form, status: form.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE" })} className={`relative h-7 w-14 rounded-full transition ${form.status === "ACTIVE" ? "bg-green-600" : "bg-gray-400"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${form.status === "ACTIVE" ? "left-8" : "left-1"}`} /></button></div>
           <div className="flex gap-3 border-t border-gray-100 pt-6"><button type="button" onClick={closeEditor} className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 font-semibold text-gray-700 hover:bg-gray-50">Cancel</button><button type="submit" disabled={saving} className="flex-1 rounded-lg bg-msu-maroon px-4 py-2.5 font-semibold text-white hover:bg-msu-maroon/90 disabled:opacity-50">{saving ? "Saving…" : "Save Changes"}</button></div>
         </form>

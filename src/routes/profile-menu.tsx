@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DriverFooter from "../components/DriverFooter";
 
 interface DriverProfile {
@@ -37,12 +37,70 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
+function getToken(): string | null {
+  if (typeof sessionStorage === "undefined") return null;
+  return sessionStorage.getItem("odofy_driver_token");
+}
+
 function ProfileMenuPage() {
-  const profile: DriverProfile | null =
-    typeof sessionStorage === "undefined"
-      ? null
-      : JSON.parse(sessionStorage.getItem("odofy_driver_profile") || "null");
+  const [profile, setProfile] = useState<DriverProfile | null>(() => {
+    // SSR-safe initial state: try sessionStorage cache
+    if (typeof sessionStorage === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem("odofy_driver_profile");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(!profile);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      setLoading(false);
+      setFetchError("No session token. Please sign in on the Dashboard first.");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function fetchProfile() {
+      try {
+        const res = await fetch("/api/v1/odofy/drivers/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `HTTP ${res.status}`);
+        }
+        const data: DriverProfile = await res.json();
+        if (!cancelled) {
+          setProfile(data);
+          setFetchError(null);
+          // Refresh the cache
+          if (typeof sessionStorage !== "undefined") {
+            sessionStorage.setItem("odofy_driver_profile", JSON.stringify(data));
+          }
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setFetchError(
+            profile
+              ? "Could not refresh. Showing cached data."
+              : err?.message || "Unable to load profile. Check your connection and try again."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchProfile();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const firstName = profile?.first_name || "DRIVER";
   const isVerified = profile?.is_verified === true;
@@ -81,7 +139,7 @@ function ProfileMenuPage() {
         <div className="space-y-2">
           <p>
             <span className="font-medium">Make/Model:</span>{" "}
-            {profile?.vehicle_make_model || "N/A"}
+            {profile?.vehicle_make_model || "Not Set"}
           </p>
           <p>
             <span className="font-medium">Color:</span>{" "}
@@ -159,78 +217,99 @@ function ProfileMenuPage() {
         </p>
       </div>
 
-      {/* Account Reconciliation Summary */}
+      {/* Loading / Error / No-Token States */}
       <div className="mx-4 mt-6 space-y-3">
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500">
+            <span className="animate-spin">⏳</span>
+            Loading profile…
+          </div>
+        )}
+
+        {!loading && !profile && fetchError && getToken() && (
+          <div className="rounded-xl bg-red-50 p-4 text-center text-sm text-red-700">
+            {fetchError}
+          </div>
+        )}
+
+        {!loading && !getToken() && (
+          <div className="rounded-xl bg-white p-5 text-center shadow-sm">
+            <p className="text-sm text-gray-600">
+              Sign in on the Dashboard first.{" "}
+              <a
+                href="/dashboard"
+                className="font-semibold text-blue-600 hover:underline"
+              >
+                Go to Dashboard →
+              </a>
+            </p>
+          </div>
+        )}
+
         {/* Verification Badge */}
-        <div className="flex items-center justify-center">
-          {isVerified ? (
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold"
-              style={{ backgroundColor: "#059669", color: "#fff" }}
-            >
-              ✅ ACTIVE &amp; VERIFIED COURIER
-            </span>
-          ) : (
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold"
-              style={{ backgroundColor: "#d97706", color: "#fff" }}
-            >
-              ⏳ PENDING COMPLIANCE REVIEW
-            </span>
-          )}
-        </div>
+        {profile && (
+          <div className="flex items-center justify-center">
+            {isVerified ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ backgroundColor: "#059669", color: "#fff" }}
+              >
+                ✅ ACTIVE &amp; VERIFIED COURIER
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ backgroundColor: "#d97706", color: "#fff" }}
+              >
+                ⏳ PENDING COMPLIANCE REVIEW
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Zone */}
         <p className="text-center text-sm font-medium" style={{ color: "#333333" }}>
           Zone: Springfield, MO Core Grid
         </p>
-      </div>
 
-      {/* Signed-out prompt */}
-      {!profile && (
-        <div className="mx-4 mt-6 rounded-xl bg-white p-5 text-center shadow-sm">
-          <p className="text-sm text-gray-600">
-            Sign in on the Dashboard first.{" "}
-            <a
-              href="/dashboard"
-              className="font-semibold text-blue-600 hover:underline"
-            >
-              Go to Dashboard →
-            </a>
-          </p>
-        </div>
-      )}
+        {/* Cached-data warning */}
+        {!loading && profile && fetchError && (
+          <p className="text-center text-xs text-amber-600">{fetchError}</p>
+        )}
+      </div>
 
       {/* Compliance Document Menu */}
-      <div className="mx-4 mt-6 rounded-xl bg-white shadow-sm overflow-hidden">
-        {rows.map((row, i) => {
-          const isExpanded = expandedRow === row.key;
-          return (
-            <div
-              key={row.key}
-              className={
-                i < rows.length - 1 ? "border-b border-gray-100" : ""
-              }
-            >
-              <button
-                onClick={() => toggleRow(row.key)}
-                className="flex w-full items-center justify-between px-5 py-4 text-left font-semibold hover:bg-gray-50 transition"
-                style={{ color: "#333333" }}
+      {profile && (
+        <div className="mx-4 mt-6 rounded-xl bg-white shadow-sm overflow-hidden">
+          {rows.map((row, i) => {
+            const isExpanded = expandedRow === row.key;
+            return (
+              <div
+                key={row.key}
+                className={
+                  i < rows.length - 1 ? "border-b border-gray-100" : ""
+                }
               >
-                <span>{row.label}</span>
-                <span className="text-gray-400 text-sm">
-                  {isExpanded ? "▼" : "▶"}
-                </span>
-              </button>
-              {isExpanded && (
-                <div className="bg-gray-50 px-4 py-3 text-sm rounded mx-4 mb-3">
-                  {row.content}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                <button
+                  onClick={() => toggleRow(row.key)}
+                  className="flex w-full items-center justify-between px-5 py-4 text-left font-semibold hover:bg-gray-50 transition"
+                  style={{ color: "#333333" }}
+                >
+                  <span>{row.label}</span>
+                  <span className="text-gray-400 text-sm">
+                    {isExpanded ? "▼" : "▶"}
+                  </span>
+                </button>
+                {isExpanded && (
+                  <div className="bg-gray-50 px-4 py-3 text-sm rounded mx-4 mb-3">
+                    {row.content}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Sign Out */}
       <div className="mx-4 mt-6">

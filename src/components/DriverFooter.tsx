@@ -11,6 +11,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Home", icon: "🏠", href: "/dashboard" },
+  { label: "Trips", icon: "⏱", href: "/dashboard?tab=trips" },
   { label: "Earnings", icon: "💰", href: "/earnings-history" },
   { label: "Notifications", icon: "🔔", href: "/notifications" },
   { label: "More", icon: "⋯", href: "/profile-menu" },
@@ -21,7 +22,7 @@ export default function DriverFooter() {
   const [currentPath, setCurrentPath] = useState("");
 
   useEffect(() => {
-    setCurrentPath(window.location.pathname);
+    setCurrentPath(window.location.pathname + window.location.search);
     const token = sessionStorage.getItem("odofy_driver_token");
     if (token) {
       fetch("/api/v1/odofy/drivers/notifications", {
