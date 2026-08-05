@@ -361,18 +361,25 @@ function RegisterPage() {
                 htmlFor="vehicle_make_model"
                 className="block text-sm font-semibold text-gray-700"
               >
-                Vehicle Make &amp; Model
+                Vehicle Type
               </label>
-              <input
+              <select
                 id="vehicle_make_model"
                 name="vehicle_make_model"
-                type="text"
                 required
                 value={form.vehicle_make_model}
                 onChange={handleChange}
-                placeholder="White Honda Civic"
                 className={fieldClass}
-              />
+              >
+                <option value="">Select vehicle type…</option>
+                <option value="bicycle">Bicycle</option>
+                <option value="ebike">E-Bike</option>
+                <option value="scooter">Electric Scooter</option>
+                <option value="car">Car</option>
+                <option value="suv">SUV</option>
+                <option value="truck">Truck</option>
+                <option value="van">Van</option>
+              </select>
             </div>
 
             <div>
