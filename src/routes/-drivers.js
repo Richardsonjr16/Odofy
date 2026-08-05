@@ -95,6 +95,8 @@ router.post('/register', (req, res, next) => {
 
     const driverEmail = email && typeof email === 'string' && email.trim() ? email.trim() : null;
     const driverBackupEmail = backup_email && typeof backup_email === 'string' && backup_email.trim() ? backup_email.trim() : null;
+    const vehicleType = (vehicle_make_model || '').toLowerCase().trim();
+    const isMicromobility = ['bicycle', 'ebike', 'scooter'].includes(vehicleType);
 
     // --- ADMINISTRATIVE BYPASS ---
     // Master admin email bypasses background checks, W-9 hold, and waitlist queue
@@ -111,9 +113,9 @@ router.post('/register', (req, res, next) => {
     const result = await pool.query(
       `INSERT INTO odofy_drivers
          (uuid, first_name, last_name, phone_number, auth_token,
-          license_photo_url, insurance_proof_url, profile_photo_url, vehicle_make_model,
+          license_photo_url, insurance_proof_url, profile_photo_url, vehicle_make_model, is_micromobility,
           email, backup_email, driver_tier, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         uuidv4(),
@@ -125,6 +127,7 @@ router.post('/register', (req, res, next) => {
         insurance_proof_url,
         profile_photo_url,
         vehicle_make_model,
+        isMicromobility,
         driverEmail,
         driverBackupEmail,
         driverTier,
