@@ -462,14 +462,13 @@ function DashboardPage() {
     return 0;
   }, [claimedTrip, targetedTrip]);
 
-  // ── FEEDBACK STATE ──
-  const [showFeedbackView, setShowFeedbackView] = useState(false);
-  const [showThumbsDown, setShowThumbsDown] = useState(false);
-  const [selectedPills, setSelectedPills] = useState<string[]>([]);
-  const [feedbackText, setFeedbackText] = useState('');
-  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
-
-  const presetReasons = ['Long Store Wait', 'Hard to Find Door', 'Poor Merchant Packaging', 'Wrong Access Code', 'App/GPS Issue'];
+  // ── RATING STATE ──
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingSafetyFlags, setRatingSafetyFlags] = useState<string[]>([]);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingError, setRatingError] = useState('');
+  const ratingSafetyOptions = ['Loose Animal', 'Poor Lighting', 'Hostile Interaction'];
 
   // ── Collegiate theme ──
   const activeCityHub = (profile?.marketHub || "springfield").toLowerCase();
@@ -887,7 +886,7 @@ function DashboardPage() {
   };
 
   // ── Slide to confirm arrival complete ──
-  const handleSlideArrivalComplete = () => {
+  const handleSlideArrivalComplete = async () => {
     if (currentLocation && claimedTrip) {
       const dist = haversineDistance(
         currentLocation.lat,
@@ -902,8 +901,28 @@ function DashboardPage() {
         return;
       }
     }
+    if (!claimedTrip) return;
+    try {
+      const res = await fetch(`/api/v1/odofy/trips/${claimedTrip.uuid}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "DELIVERED" }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || `HTTP ${res.status}`);
+      }
+    } catch (err) {
+      setShowArrivalError(true);
+      setArrivalSlideKey((prev) => prev + 1);
+      console.error("Failed to mark trip DELIVERED:", err);
+      return;
+    }
     setActiveDeliveryStep("IDLE");
-    setShowFeedbackView(true);
+    setShowRatingModal(true);
   };
 
   // ── Navigate to customer ──
@@ -913,35 +932,53 @@ function DashboardPage() {
     window.open(url, "_blank");
   };
 
-  // ── Submit thumbs-down feedback ──
-  const handleSubmitFeedback = async () => {
-    setFeedbackSubmitting(true);
+  // ── Submit star rating ──
+  const handleSubmitRating = async () => {
+    if (!claimedTrip) return;
+    if (ratingStars < 1) {
+      setRatingError("Please select a star rating.");
+      return;
+    }
+    setRatingSubmitting(true);
+    setRatingError("");
     try {
-      await fetch("/api/v1/odofy/drivers/feedback", {
+      const res = await fetch("/api/v1/ratings/submit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          reasons: selectedPills,
-          details: feedbackText,
-          trip_id: claimedTrip?.uuid || null,
+          order_id: claimedTrip.uuid,
+          receiver_id: claimedTrip.merchant_id,
+          role_type: "DRIVER_TO_CUSTOMER",
+          stars: ratingStars,
+          safety_flags: ratingStars <= 3 ? ratingSafetyFlags : [],
+          notes: "",
         }),
       });
-    } catch {
-      // fire-and-forget — proceed regardless
-    } finally {
-      setFeedbackSubmitting(false);
-      // Reset all feedback and delivery state
-      setShowFeedbackView(false);
-      setShowThumbsDown(false);
-      setSelectedPills([]);
-      setFeedbackText('');
-      setClaimedTrip(null);
-      setPickupItems([]);
-      setCurrentStopIndex(0);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || `HTTP ${res.status}`);
+      }
+    } catch (err) {
+      console.error("Rating submission failed:", err);
+      setRatingError(
+        err instanceof Error ? err.message : "Failed to submit rating."
+      );
+      setRatingSubmitting(false);
+      return;
     }
+    setRatingSubmitting(false);
+    // Reset all rating and delivery state, driver goes back to IDLE
+    setShowRatingModal(false);
+    setRatingStars(0);
+    setRatingSafetyFlags([]);
+    setRatingError("");
+    setClaimedTrip(null);
+    setPickupItems([]);
+    setCurrentStopIndex(0);
+    setActiveDeliveryStep("IDLE");
   };
 
   // ── LOGIN SCREEN ──
@@ -2035,82 +2072,53 @@ function DashboardPage() {
           </div>
         </>
       )}
-      {/* ── FEEDBACK MODAL ── */}
-      {showFeedbackView && (
+      {/* ── RATING MODAL ── */}
+      {showRatingModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          {!showThumbsDown ? (
-            /* ── STEP 1: Thumbs-up / Thumbs-down ── */
-            <div className="rounded-[28px] p-6 max-w-sm w-full text-center shadow-xl flex flex-col items-center gap-5 animate-slide-up" style={{ backgroundColor: darkPrimary }}>
-              <p className="text-white text-lg font-bold mt-2">
-                How was your delivery?
-              </p>
-              <div className="flex gap-8 mt-2">
+          <div className="rounded-[28px] p-6 max-w-sm w-full text-center shadow-xl flex flex-col items-center gap-5 animate-slide-up" style={{ backgroundColor: darkPrimary }}>
+            <p className="text-white text-lg font-bold mt-2">
+              Rate Your Delivery Experience
+            </p>
+            <p className="text-white/50 text-xs font-medium">
+              Tap a star to rate this delivery
+            </p>
+            {/* Star picker */}
+            <div className="flex gap-2 mt-1">
+              {[1, 2, 3, 4, 5].map((star) => (
                 <button
+                  key={star}
                   onClick={() => {
-                    // Thumbs up — skip feedback, reset to dashboard
-                    setShowFeedbackView(false);
-                    setClaimedTrip(null);
-                    setPickupItems([]);
-                    setCurrentStopIndex(0);
+                    setRatingStars(star);
+                    setRatingSafetyFlags([]);
+                    setRatingError("");
                   }}
-                  className="w-20 h-20 rounded-full bg-[#0D3B0D]/60 border-2 border-[#2ECC71]/30 flex items-center justify-center hover:bg-[#0D3B0D]/80 hover:border-[#2ECC71]/60 transition-all active:scale-95"
+                  className="text-4xl leading-none transition-transform hover:scale-110 active:scale-95 cursor-pointer select-none"
+                  aria-label={`${star} star${star > 1 ? "s" : ""}`}
                 >
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#2ECC71" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7 22V11M2 13v7a2 2 0 002 2h4.5l3.84 2.88a1 1 0 00.6.18H17a2 2 0 002-2l2-9a2 2 0 00-2-2h-5.72a2 2 0 01-1.72-1l-1.6-4.8A1.5 1.5 0 0010.5 5h-1A1.5 1.5 0 008 6.5v6.5H4a2 2 0 00-2 2z"/>
-                  </svg>
+                  <span
+                    style={{
+                      color: star <= ratingStars ? "#FFC107" : "rgba(255,255,255,0.25)",
+                      textShadow: star <= ratingStars ? "0 2px 8px rgba(255,193,7,0.4)" : "none",
+                    }}
+                  >
+                    {star <= ratingStars ? "★" : "☆"}
+                  </span>
                 </button>
-                <button
-                  onClick={() => setShowThumbsDown(true)}
-                  className="w-20 h-20 rounded-full border-2 flex items-center justify-center transition-all active:scale-95"
-                  style={{
-                    backgroundColor: hexToRgba(currentMarketColors.primary, 0.4),
-                    borderColor: hexToRgba(currentMarketColors.primary, 0.6),
-                  }}
-                >
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E74C3C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" transform="rotate(180)">
-                    <path d="M7 22V11M2 13v7a2 2 0 002 2h4.5l3.84 2.88a1 1 0 00.6.18H17a2 2 0 002-2l2-9a2 2 0 00-2-2h-5.72a2 2 0 01-1.72-1l-1.6-4.8A1.5 1.5 0 0010.5 5h-1A1.5 1.5 0 008 6.5v6.5H4a2 2 0 00-2 2z"/>
-                  </svg>
-                </button>
-              </div>
-              <button
-                onClick={() => {
-                  setShowFeedbackView(false);
-                  setClaimedTrip(null);
-                  setPickupItems([]);
-                  setCurrentStopIndex(0);
-                }}
-                className="text-white/40 text-xs font-medium mt-2 hover:text-white/70 transition-colors"
-              >
-                Skip
-              </button>
+              ))}
             </div>
-          ) : (
-            /* ── STEP 2: Thumbs-down detail view ── */
-            <div className="rounded-[28px] p-6 max-w-sm w-full shadow-xl flex flex-col gap-5 animate-slide-up" style={{ backgroundColor: darkPrimary }}>
-              <div className="text-center">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E74C3C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto" transform="rotate(180)">
-                  <path d="M7 22V11M2 13v7a2 2 0 002 2h4.5l3.84 2.88a1 1 0 00.6.18H17a2 2 0 002-2l2-9a2 2 0 00-2-2h-5.72a2 2 0 01-1.72-1l-1.6-4.8A1.5 1.5 0 0010.5 5h-1A1.5 1.5 0 008 6.5v6.5H4a2 2 0 00-2 2z"/>
-                </svg>
-                <h2 className="text-white text-lg font-bold mt-3">
-                  What went wrong?
-                </h2>
-                <p className="text-white/50 text-xs font-medium mt-1">
-                  Help us improve your experience
-                </p>
-              </div>
-
-              {/* Preset reason pills */}
-              <div className="flex flex-wrap gap-2 mb-4 w-full justify-center">
-                {presetReasons.map((reason) => {
-                  const isActive = selectedPills.includes(reason);
+            {/* Safety flags shown only for low ratings */}
+            {ratingStars > 0 && ratingStars <= 3 && (
+              <div className="flex flex-wrap gap-2 mb-1 w-full justify-center">
+                {ratingSafetyOptions.map((flag) => {
+                  const isActive = ratingSafetyFlags.includes(flag);
                   return (
                     <button
-                      key={reason}
+                      key={flag}
                       onClick={() => {
-                        setSelectedPills((prev) =>
-                          prev.includes(reason)
-                            ? prev.filter((r) => r !== reason)
-                            : [...prev, reason]
+                        setRatingSafetyFlags((prev) =>
+                          prev.includes(flag)
+                            ? prev.filter((f) => f !== flag)
+                            : [...prev, flag]
                         );
                       }}
                       className={`px-3.5 py-2 rounded-full border text-xs font-semibold cursor-pointer transition-all hover:bg-white/10 select-none ${
@@ -2120,38 +2128,32 @@ function DashboardPage() {
                       }`}
                       style={isActive ? { backgroundColor: currentMarketColors.primary, borderColor: currentMarketColors.primary } : undefined}
                     >
-                      {reason}
+                      {flag}
                     </button>
                   );
                 })}
               </div>
-
-              {/* Optional text area */}
-              <textarea
-                value={feedbackText}
-                onChange={(e) => setFeedbackText(e.target.value)}
-                placeholder="Optional: Tell us more details..."
-                className="w-full min-h-[100px] bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white font-medium resize-none"
-              />
-
-              {/* Submit button */}
-              <button
-                onClick={handleSubmitFeedback}
-                disabled={feedbackSubmitting}
-                className="w-full py-3.5 text-white font-bold text-sm rounded-full text-center shadow-md transition-all disabled:opacity-60 uppercase tracking-wider"
-                style={{ backgroundColor: currentMarketColors.primary, boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}` }}
-              >
-                {feedbackSubmitting ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Submitting…
-                  </span>
-                ) : (
-                  "SUBMIT"
-                )}
-              </button>
-            </div>
-          )}
+            )}
+            {ratingError && (
+              <p className="text-red-300 text-xs font-medium">{ratingError}</p>
+            )}
+            {/* Submit button */}
+            <button
+              onClick={handleSubmitRating}
+              disabled={ratingSubmitting || ratingStars < 1}
+              className="w-full py-3.5 text-white font-bold text-sm rounded-full text-center shadow-md transition-all disabled:opacity-60 uppercase tracking-wider"
+              style={{ backgroundColor: currentMarketColors.primary, boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}` }}
+            >
+              {ratingSubmitting ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Submitting…
+                </span>
+              ) : (
+                "Submit Rating & Go Online"
+              )}
+            </button>
+          </div>
         </div>
       )}
     </>
