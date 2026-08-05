@@ -21,6 +21,7 @@ interface TripData {
   created_at: string;
   driver_name: string | null;
   driver_eta_mins: number | null;
+  driver_id: string | null;
 }
 
 const MAROON = "#5E0009";
@@ -62,7 +63,43 @@ function TrackPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [etaMins, setEtaMins] = useState<number | null>(null);
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingError, setRatingError] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const submitRating = async () => {
+    if (!trip || ratingStars < 1) return;
+    setRatingSubmitting(true);
+    setRatingError("");
+    try {
+      const res = await fetch("/api/v1/ratings/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: orderId,
+          receiver_id: trip.driver_id,
+          role_type: "CUSTOMER_TO_DRIVER",
+          stars: ratingStars,
+          safety_flags: [],
+          notes: "",
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || `HTTP ${res.status}`);
+      }
+      setRatingSubmitted(true);
+    } catch (err) {
+      console.error("Rating submission failed:", err);
+      setRatingError(
+        err instanceof Error ? err.message : "Failed to submit rating."
+      );
+    } finally {
+      setRatingSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -223,6 +260,76 @@ function TrackPage() {
             </p>
           )}
         </div>
+
+        {trip.status === "DELIVERED" && (
+          <div className="mt-6 pt-5 border-t border-gray-200">
+            {ratingSubmitted ? (
+              <div className="text-center py-3">
+                <p className="text-2xl mb-2">🎉</p>
+                <p className="text-gray-800 font-semibold">
+                  Thank you! Your rating helps our couriers improve.
+                </p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <h3 className="text-lg font-bold text-gray-900">
+                  How was your delivery?
+                </h3>
+                <p className="text-sm text-gray-500 mt-1 mb-3">
+                  Rate your courier
+                </p>
+                <div className="flex justify-center gap-2 mb-4">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => {
+                        setRatingStars(star);
+                        setRatingError("");
+                      }}
+                      className="text-4xl leading-none transition-transform hover:scale-110 active:scale-95 cursor-pointer select-none"
+                      aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
+                    >
+                      <span
+                        style={{
+                          color: star <= ratingStars ? "#FFC107" : "#D1D5DB",
+                          textShadow:
+                            star <= ratingStars
+                              ? "0 2px 8px rgba(255,193,7,0.4)"
+                              : "none",
+                        }}
+                      >
+                        {star <= ratingStars ? "★" : "☆"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {ratingError && (
+                  <p className="text-red-600 text-xs font-medium mb-3">
+                    {ratingError}
+                  </p>
+                )}
+                <button
+                  onClick={submitRating}
+                  disabled={ratingSubmitting || ratingStars < 1}
+                  className="w-full py-3.5 text-white font-bold text-sm rounded-full text-center shadow-md transition-all disabled:opacity-60 uppercase tracking-wider"
+                  style={{
+                    backgroundColor: MAROON,
+                    boxShadow: "0 2px 4px rgba(94,0,9,0.1)",
+                  }}
+                >
+                  {ratingSubmitting ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Submitting…
+                    </span>
+                  ) : (
+                    "Submit Rating"
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
