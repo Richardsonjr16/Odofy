@@ -42,8 +42,10 @@ router.post('/submit', requireDriverForRole, async (req, res) => {
     if (!Number.isInteger(stars) || stars < 1 || stars > 5) {
       return res.status(400).json({ error: 'stars must be an integer between 1 and 5' });
     }
+    // order_id may be the trip uuid (driver flow) or the public ODF- order
+    // number carried in the customer's tracking link (customer flow).
     const tripResult = await pool.query(
-      'SELECT uuid, driver_id, merchant_id, status FROM odofy_trips WHERE uuid = $1',
+      'SELECT uuid, driver_id, merchant_id, status FROM odofy_trips WHERE uuid::text = $1 OR order_number = $1',
       [order_id]
     );
     if (tripResult.rows.length === 0) {
@@ -85,7 +87,7 @@ router.post('/submit', requireDriverForRole, async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, created_at`,
       [
-        order_id,
+        trip.uuid,
         resolvedSenderId,
         resolvedReceiverId,
         role_type,
