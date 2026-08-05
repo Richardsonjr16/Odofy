@@ -109,19 +109,20 @@ router.get('/available', authenticateDriver, async (req, res) => {
 
     const driver = req.driver;
     const isStudent = driver.email && driver.email.toLowerCase().endsWith('.edu');
+    const isMicromobility = driver.is_micromobility === true;
     const now = Date.now();
 
     let result;
     if (isStudent) {
       result = await pool.query(
-        'SELECT * FROM odofy_trips WHERE status = $1 ORDER BY created_at ASC',
-        ['PENDING_PICKUP']
+        "SELECT * FROM odofy_trips WHERE status = $1 AND ($2::boolean IS NOT TRUE OR weight_class = 'light') ORDER BY created_at ASC",
+        ['PENDING_PICKUP', isMicromobility]
       );
     } else {
       const cutoffTime = new Date(now - 120000).toISOString();
       result = await pool.query(
-        'SELECT * FROM odofy_trips WHERE status = $1 AND created_at <= $2 ORDER BY created_at ASC',
-        ['PENDING_PICKUP', cutoffTime]
+        "SELECT * FROM odofy_trips WHERE status = $1 AND created_at <= $2 AND ($3::boolean IS NOT TRUE OR weight_class = 'light') ORDER BY created_at ASC",
+        ['PENDING_PICKUP', cutoffTime, isMicromobility]
       );
     }
 
