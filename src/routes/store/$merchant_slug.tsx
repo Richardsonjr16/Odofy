@@ -44,6 +44,22 @@ function StorePage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryMode, setDeliveryMode] = useState<'now' | 'scheduled'>('now');
+  const [scheduledSlot, setScheduledSlot] = useState("");
+
+  // Generate 1-hour time slots over the next 48 hours
+  const timeSlots = (() => {
+    const slots: { label: string; value: string }[] = [];
+    const now = new Date();
+    for (let h = 1; h <= 48; h++) {
+      const start = new Date(now.getTime() + h * 3600000);
+      start.setMinutes(0, 0, 0);
+      const end = new Date(start.getTime() + 3600000);
+      const fmt = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', hour12: true });
+      slots.push({ label: `${fmt(start)} – ${fmt(end)}`, value: start.toISOString() });
+    }
+    return slots;
+  })();
 
   useEffect(() => {
     fetch(`/api/v1/odofy/merchants/store/${merchant_slug}/products`)
@@ -83,22 +99,30 @@ function StorePage() {
 
   const handleCheckout = async () => {
     if (!customerName || !deliveryAddress) return;
+    if (deliveryMode === 'scheduled' && !scheduledSlot) return;
     setCheckoutSubmitting(true);
     try {
+      const payload: Record<string, unknown> = {
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        delivery_address: deliveryAddress,
+        items: cart.map((ci) => ({
+          product_id: ci.product.id,
+          qty: ci.qty,
+        })),
+      };
+      if (deliveryMode === 'scheduled' && scheduledSlot) {
+        payload.is_scheduled = true;
+        payload.scheduled_window_start = scheduledSlot;
+        // Window ends 1 hour after start
+        payload.scheduled_window_end = new Date(new Date(scheduledSlot).getTime() + 3600000).toISOString();
+      }
       const res = await fetch(
         `/api/v1/odofy/merchants/store/${merchant_slug}/checkout`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customer_name: customerName,
-            customer_phone: customerPhone,
-            delivery_address: deliveryAddress,
-            items: cart.map((ci) => ({
-              product_id: ci.product.id,
-              qty: ci.qty,
-            })),
-          }),
+          body: JSON.stringify(payload),
         }
       );
       const data = await res.json();
@@ -288,6 +312,43 @@ function StorePage() {
                 onChange={(e) => setDeliveryAddress(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl p-3 text-sm"
               />
+              {/* Delivery mode toggle */}
+              <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
+                <button
+                  onClick={() => setDeliveryMode('now')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${
+                    deliveryMode === 'now'
+                      ? 'bg-[#5E0009] text-white shadow'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  🚀 Deliver Now
+                </button>
+                <button
+                  onClick={() => setDeliveryMode('scheduled')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${
+                    deliveryMode === 'scheduled'
+                      ? 'bg-[#5E0009] text-white shadow'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  📅 Schedule for Later
+                </button>
+              </div>
+              {deliveryMode === 'scheduled' && (
+                <select
+                  value={scheduledSlot}
+                  onChange={(e) => setScheduledSlot(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl p-3 text-sm bg-white"
+                >
+                  <option value="">Select a delivery window…</option>
+                  {timeSlots.map((slot) => (
+                    <option key={slot.value} value={slot.value}>
+                      {slot.label}
+                    </option>
+                  ))}
+                </select>
+              )}
               <div className="bg-gray-50 rounded-xl p-3">
                 <p className="text-sm text-gray-600">
                   {cart.reduce((s, ci) => s + ci.qty, 0)} items · $
@@ -304,7 +365,7 @@ function StorePage() {
               </button>
               <button
                 onClick={handleCheckout}
-                disabled={checkoutSubmitting || !customerName || !deliveryAddress}
+                disabled={checkoutSubmitting || !customerName || !deliveryAddress || (deliveryMode === 'scheduled' && !scheduledSlot)}
                 className="flex-1 bg-[#5E0009] text-white font-bold py-3 rounded-xl disabled:opacity-50"
               >
                 {checkoutSubmitting ? "Placing Order…" : "Place Order"}
