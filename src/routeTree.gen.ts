@@ -24,6 +24,7 @@ import { Route as TrackRouteImport } from './routes/track'
 import { Route as TripsRouteImport } from './routes/trips'
 import { Route as AdminDriversRouteImport } from './routes/admin/drivers'
 import { Route as AdminTaxesRouteImport } from './routes/admin/taxes'
+import { Route as MerchantDashboardRouteImport } from './routes/merchant/dashboard'
 import { Route as TOrderIdRouteImport } from './routes/t.$orderId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -101,6 +102,11 @@ const AdminTaxesRoute = AdminTaxesRouteImport.update({
   path: '/taxes',
   getParentRoute: () => AdminRoute,
 } as any)
+const MerchantDashboardRoute = MerchantDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => MerchantRoute,
+} as any)
 const TOrderIdRoute = TOrderIdRouteImport.update({
   id: '/t/$orderId',
   path: '/t/$orderId',
@@ -112,7 +118,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/earnings-history': typeof EarningsHistoryRoute
-  '/merchant': typeof MerchantRoute
+  '/merchant': typeof MerchantRouteWithChildren
   '/merchant-login': typeof MerchantLoginRoute
   '/merchant-signup': typeof MerchantSignupRoute
   '/notifications': typeof NotificationsRoute
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
+  '/merchant/dashboard': typeof MerchantDashboardRoute
   '/t/$orderId': typeof TOrderIdRoute
 }
 export interface FileRoutesByTo {
@@ -130,7 +137,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/earnings-history': typeof EarningsHistoryRoute
-  '/merchant': typeof MerchantRoute
+  '/merchant': typeof MerchantRouteWithChildren
   '/merchant-login': typeof MerchantLoginRoute
   '/merchant-signup': typeof MerchantSignupRoute
   '/notifications': typeof NotificationsRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
+  '/merchant/dashboard': typeof MerchantDashboardRoute
   '/t/$orderId': typeof TOrderIdRoute
 }
 export interface FileRoutesById {
@@ -149,7 +157,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/earnings-history': typeof EarningsHistoryRoute
-  '/merchant': typeof MerchantRoute
+  '/merchant': typeof MerchantRouteWithChildren
   '/merchant-login': typeof MerchantLoginRoute
   '/merchant-signup': typeof MerchantSignupRoute
   '/notifications': typeof NotificationsRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
+  '/merchant/dashboard': typeof MerchantDashboardRoute
   '/t/$orderId': typeof TOrderIdRoute
 }
 export interface FileRouteTypes {
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
+    | '/merchant/dashboard'
     | '/t/$orderId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
+    | '/merchant/dashboard'
     | '/t/$orderId'
   id:
     | '__root__'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
+    | '/merchant/dashboard'
     | '/t/$orderId'
   fileRoutesById: FileRoutesById
 }
@@ -224,7 +236,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   DashboardRoute: typeof DashboardRoute
   EarningsHistoryRoute: typeof EarningsHistoryRoute
-  MerchantRoute: typeof MerchantRoute
+  MerchantRoute: typeof MerchantRouteWithChildren
   MerchantLoginRoute: typeof MerchantLoginRoute
   MerchantSignupRoute: typeof MerchantSignupRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -343,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTaxesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/merchant/dashboard': {
+      id: '/merchant/dashboard'
+      path: '/dashboard'
+      fullPath: '/merchant/dashboard'
+      preLoaderRoute: typeof MerchantDashboardRouteImport
+      parentRoute: typeof MerchantRoute
+    }
     '/t/$orderId': {
       id: '/t/$orderId'
       path: '/t/$orderId'
@@ -365,12 +384,24 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface MerchantRouteChildren {
+  MerchantDashboardRoute: typeof MerchantDashboardRoute
+}
+
+const MerchantRouteChildren: MerchantRouteChildren = {
+  MerchantDashboardRoute: MerchantDashboardRoute,
+}
+
+const MerchantRouteWithChildren = MerchantRoute._addFileChildren(
+  MerchantRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   DashboardRoute: DashboardRoute,
   EarningsHistoryRoute: EarningsHistoryRoute,
-  MerchantRoute: MerchantRoute,
+  MerchantRoute: MerchantRouteWithChildren,
   MerchantLoginRoute: MerchantLoginRoute,
   MerchantSignupRoute: MerchantSignupRoute,
   NotificationsRoute: NotificationsRoute,
