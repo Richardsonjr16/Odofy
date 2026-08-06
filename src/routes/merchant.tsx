@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 
 /* ── MSU MAROON DESIGN TOKENS ── */
@@ -70,6 +70,12 @@ function MerchantPage() {
     }
     fetchData();
   }, [email]);
+
+  /* ── Nested routes (e.g. /merchant/dashboard) ── */
+  const matches = useRouterState({ select: (s) => s.matches });
+  if (matches.some((m) => m.id.startsWith("/merchant/"))) {
+    return <Outlet />;
+  }
 
   /* ── Stats ── */
   const activeCount = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled").length;
