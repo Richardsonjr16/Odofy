@@ -21,6 +21,9 @@ const ratingsRoutes = require('./routes/-ratings');
 const ordersRoutes = require('./routes/-orders');
 const { startHoldReleaser } = require('./services/holdReleaser');
 const { startIdentityReleaser } = require('./services/identityReleaser');
+// Self-starting worker: releases scheduled trips whose window is approaching.
+// Loaded after the pool module so DATABASE_URL is configured by dotenv above.
+require('./workers/-scheduled-dispatch');
 
 const app = express();
 
