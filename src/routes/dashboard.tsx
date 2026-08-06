@@ -51,6 +51,8 @@ interface AvailableTrip {
   driver_payout: string;
   driver_tip_allocation: string;
   merchant_id: string;
+  merchant_lat?: number;
+  merchant_lng?: number;
   created_at: string;
   scheduled_pickup_time?: string;
   order_number?: string;
@@ -441,6 +443,9 @@ function DashboardPage() {
     "IDLE" | "LOADING" | "EN_ROUTE" | "MINIMIZED"
   >("IDLE");
   const [claimedTrip, setClaimedTrip] = useState<AvailableTrip | null>(null);
+  const [isReturning, setIsReturning] = useState(false);
+  const [restockSubmitting, setRestockSubmitting] = useState(false);
+  const [restockSuccess, setRestockSuccess] = useState(false);
   const [showSeparationModal, setShowSeparationModal] = useState(false);
   const [isTooEarlyModalOpen, setIsTooEarlyModalOpen] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
@@ -535,14 +540,14 @@ function DashboardPage() {
     }));
     if (claimedTrip && activeDeliveryStep === "EN_ROUTE") {
       markers.push({
-        lat: Number(claimedTrip.dest_latitude),
-        lng: Number(claimedTrip.dest_longitude),
+        lat: isReturning ? Number(claimedTrip.merchant_lat) : Number(claimedTrip.dest_latitude),
+        lng: isReturning ? Number(claimedTrip.merchant_lng) : Number(claimedTrip.dest_longitude),
         label: "🎯",
         color: darkPrimary,
       });
     }
     return markers;
-  }, [visibleTrips, claimedTrip, activeDeliveryStep]);
+  }, [visibleTrips, claimedTrip, activeDeliveryStep, isReturning]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("odofy_driver_token");
@@ -925,10 +930,53 @@ function DashboardPage() {
     setShowRatingModal(true);
   };
 
+  const handleMarkUndeliverable = async () => {
+    if (!claimedTrip || !token) return;
+    try {
+      const res = await fetch(`/api/v1/odofy/trips/${claimedTrip.uuid}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: "UNDELIVERABLE" }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      setIsReturning(true);
+    } catch (error) {
+      setShowArrivalError(true);
+      console.error("Failed to mark trip UNDELIVERABLE:", error);
+    }
+  };
+
+  const handleConfirmRestock = async () => {
+    if (!claimedTrip || !token || restockSubmitting) return;
+    setRestockSubmitting(true);
+    try {
+      const res = await fetch("/api/v1/orders/execute-return-restock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ order_id: claimedTrip.uuid }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      setIsReturning(false);
+      setClaimedTrip(null);
+      setActiveDeliveryStep("IDLE");
+      setRestockSuccess(true);
+      window.setTimeout(() => setRestockSuccess(false), 3000);
+    } catch (error) {
+      setShowArrivalError(true);
+      console.error("Failed to confirm return restock:", error);
+    } finally {
+      setRestockSubmitting(false);
+    }
+  };
+
   // ── Navigate to customer ──
   const handleNavigate = () => {
     if (!claimedTrip) return;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${claimedTrip.dest_latitude},${claimedTrip.dest_longitude}&dir_action=navigate`;
+    const latitude = isReturning ? claimedTrip.merchant_lat : claimedTrip.dest_latitude;
+    const longitude = isReturning ? claimedTrip.merchant_lng : claimedTrip.dest_longitude;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&dir_action=navigate`;
     window.open(url, "_blank");
   };
 
@@ -1108,9 +1156,14 @@ function DashboardPage() {
   if (activeDeliveryStep === "EN_ROUTE" && claimedTrip) {
     const customerLat = Number(claimedTrip.dest_latitude);
     const customerLng = Number(claimedTrip.dest_longitude);
+    const merchantLat = Number(claimedTrip.merchant_lat);
+    const merchantLng = Number(claimedTrip.merchant_lng);
+    const destinationLat = isReturning ? merchantLat : customerLat;
+    const destinationLng = isReturning ? merchantLng : customerLng;
     const tripDistance = currentLocation
-      ? haversineDistance(currentLocation.lat, currentLocation.lng, customerLat, customerLng)
+      ? haversineDistance(currentLocation.lat, currentLocation.lng, destinationLat, destinationLng)
       : 4.3;
+    const withinMerchantGeofence = Boolean(currentLocation && Number.isFinite(merchantLat) && Number.isFinite(merchantLng) && haversineDistance(currentLocation.lat, currentLocation.lng, merchantLat, merchantLng) * 5280 <= 150);
     const estimatedMins = Math.round(tripDistance * 3);
     const estimatedArrivalTime = (() => {
       const now = new Date();
@@ -1151,8 +1204,8 @@ function DashboardPage() {
           <DriverMap
             markers={[
               {
-                lat: customerLat,
-                lng: customerLng,
+                lat: destinationLat,
+                lng: destinationLng,
                 label: "📍",
                 color: currentMarketColors.primary,
               },
@@ -1244,8 +1297,32 @@ function DashboardPage() {
             </button>
           </div>
 
+          {!isReturning && (
+            <button
+              onClick={handleMarkUndeliverable}
+              className="w-full border border-amber-300 text-amber-800 font-bold py-3 rounded-xl mt-2"
+            >
+              Mark Undeliverable
+            </button>
+          )}
+
+          {isReturning && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 my-4 text-center">
+              <p className="text-amber-800 font-bold text-sm">🔄 Reverse Logistics Active: Return parcel to store clerk immediately.</p>
+              <button
+                onClick={handleConfirmRestock}
+                disabled={!withinMerchantGeofence || restockSubmitting}
+                className="w-full bg-[#5E0009] text-white font-bold py-4 rounded-xl mt-3 shadow-md disabled:opacity-50"
+              >
+                {restockSubmitting ? "Confirming…" : "Confirm Restock Handshake"}
+              </button>
+            </div>
+          )}
+
+          {restockSuccess && <p className="text-center text-sm font-bold text-green-700">Return restock confirmed.</p>}
+
           {/* Slide to confirm arrival */}
-          <div className="mt-1">
+          {!isReturning && <div className="mt-1">
             <SlideTrack
               key={arrivalSlideKey}
               label="SLIDE TO CONFIRM ARRIVAL"
@@ -1256,7 +1333,7 @@ function DashboardPage() {
             <p className="text-[10px] font-medium text-gray-400 text-center mt-2">
               Must be within 150ft of delivery address
             </p>
-          </div>
+          </div>}
         </div>
 
         {bottomNav}
