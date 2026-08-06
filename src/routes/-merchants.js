@@ -332,7 +332,7 @@ router.post('/store/:slug/checkout', async (req, res) => {
     const merchant = await pool.query('SELECT uuid, business_name, latitude, longitude FROM odofy_merchants WHERE slug = $1', [req.params.slug]);
     if (!merchant.rows.length) return res.status(404).json({ error: 'Store not found' });
     const m = merchant.rows[0];
-    const { customer_name, customer_phone, delivery_address, items } = req.body || {};
+    const { customer_name, customer_phone, delivery_address, items, is_scheduled, scheduled_window_start, scheduled_window_end } = req.body || {};
     if (!customer_name || !delivery_address || !items || !items.length) {
       return res.status(400).json({ error: 'Missing required fields: customer_name, delivery_address, items' });
     }
@@ -342,12 +342,16 @@ router.post('/store/:slug/checkout', async (req, res) => {
       if (p.rows.length) totalCents += p.rows[0].price_cents * (item.qty || 1);
     }
     const orderNumber = 'ODF-' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
+    const useScheduled = !!(is_scheduled && scheduled_window_start && scheduled_window_end);
     const result = await pool.query(
       `INSERT INTO odofy_trips (uuid, merchant_id, order_number, customer_name, customer_phone, delivery_address,
-        dest_latitude, dest_longitude, status, driver_payout, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING', $9, NOW()) RETURNING uuid, order_number, status`,
+        dest_latitude, dest_longitude, status, driver_payout, created_at,
+        is_scheduled, scheduled_window_start, scheduled_window_end)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING_PICKUP', $9, NOW(),
+        $10, $11, $12) RETURNING uuid, order_number, status`,
       [require('crypto').randomUUID(), m.uuid, orderNumber, customer_name, customer_phone || null, delivery_address,
-       m.latitude, m.longitude, totalCents]
+       m.latitude, m.longitude, totalCents,
+       useScheduled, useScheduled ? scheduled_window_start : null, useScheduled ? scheduled_window_end : null]
     );
     console.log(`[ORDER] New order ${orderNumber} for ${req.params.slug} — ${items.length} items, $${(totalCents/100).toFixed(2)}`);
     return res.json({ success: true, order: result.rows[0] });
