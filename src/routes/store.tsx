@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-type StoreProduct = { id: string; title: string; description?: string; price_cents: number; image_url?: string; in_stock: boolean; merchant_id: string };
+type StoreProduct = { id: string; title: string; description?: string; price_cents: number; image_url?: string; in_stock: boolean; merchant_id: string; merchant_name: string; merchant_slug: string };
 
 function StorePage() {
   const [products, setProducts] = useState<StoreProduct[]>([]);
