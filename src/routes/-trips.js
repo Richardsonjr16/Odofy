@@ -115,13 +115,13 @@ router.get('/available', authenticateDriver, async (req, res) => {
     let result;
     if (isStudent) {
       result = await pool.query(
-        "SELECT * FROM odofy_trips WHERE status = $1 AND ($2::boolean IS NOT TRUE OR weight_class = 'light') ORDER BY created_at ASC",
+        "SELECT t.*, m.latitude AS merchant_lat, m.longitude AS merchant_lng FROM odofy_trips t LEFT JOIN odofy_merchants m ON m.uuid = t.merchant_id WHERE t.status = $1 AND ($2::boolean IS NOT TRUE OR t.weight_class = 'light') ORDER BY t.created_at ASC",
         ['PENDING_PICKUP', isMicromobility]
       );
     } else {
       const cutoffTime = new Date(now - 120000).toISOString();
       result = await pool.query(
-        "SELECT * FROM odofy_trips WHERE status = $1 AND created_at <= $2 AND ($3::boolean IS NOT TRUE OR weight_class = 'light') ORDER BY created_at ASC",
+        "SELECT t.*, m.latitude AS merchant_lat, m.longitude AS merchant_lng FROM odofy_trips t LEFT JOIN odofy_merchants m ON m.uuid = t.merchant_id WHERE t.status = $1 AND t.created_at <= $2 AND ($3::boolean IS NOT TRUE OR t.weight_class = 'light') ORDER BY t.created_at ASC",
         ['PENDING_PICKUP', cutoffTime, isMicromobility]
       );
     }
@@ -151,14 +151,17 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
     const tripId = req.params.id;
     const { status } = req.body;
 
-    if (!status || !['EN_ROUTE', 'DELIVERED', 'CANCELLED'].includes(status)) {
+    if (!status || !['EN_ROUTE', 'DELIVERED', 'UNDELIVERABLE', 'CANCELLED'].includes(status)) {
       return res.status(400).json({
-        error: 'Invalid status. Must be one of: EN_ROUTE, DELIVERED, CANCELLED',
+        error: 'Invalid status. Must be one of: EN_ROUTE, DELIVERED, UNDELIVERABLE, CANCELLED',
       });
     }
 
     const tripResult = await pool.query(
-      'SELECT * FROM odofy_trips WHERE uuid = $1',
+      `SELECT t.*, m.latitude AS merchant_lat, m.longitude AS merchant_lng
+       FROM odofy_trips t
+       LEFT JOIN odofy_merchants m ON m.uuid = t.merchant_id
+       WHERE t.uuid = $1`,
       [tripId]
     );
 
@@ -184,7 +187,7 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
         ['EN_ROUTE', driverId, tripId]
       );
 
-      const claimedTrip = result.rows[0];
+      const claimedTrip = { ...result.rows[0], merchant_lat: trip.merchant_lat, merchant_lng: trip.merchant_lng };
 
       if (claimedTrip.customer_phone) {
         const orderNum = claimedTrip.order_number || '';
@@ -293,11 +296,28 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
         `Delivery confirmation for customer ${trip.customer_name} — email would be sent here`
       );
 
-      return res.status(200).json(result.rows[0]);
+      return res.status(200).json({ ...result.rows[0], merchant_lat: trip.merchant_lat, merchant_lng: trip.merchant_lng });
+    }
+
+    if (status === 'UNDELIVERABLE') {
+      if (trip.status !== 'EN_ROUTE') {
+        return res.status(400).json({
+          error: `Cannot transition from ${trip.status} to UNDELIVERABLE`,
+        });
+      }
+      if (trip.driver_id !== driverId) {
+        return res.status(400).json({ error: 'Trip does not belong to this driver' });
+      }
+
+      const result = await pool.query(
+        `UPDATE odofy_trips SET status = $1 WHERE uuid = $2 RETURNING *`,
+        ['UNDELIVERABLE', tripId]
+      );
+      return res.status(200).json({ ...result.rows[0], merchant_lat: trip.merchant_lat, merchant_lng: trip.merchant_lng });
     }
 
     if (status === 'CANCELLED') {
-      if (trip.status !== 'PENDING_PICKUP' && trip.status !== 'EN_ROUTE') {
+      if (trip.status !== 'PENDING_PICKUP' && trip.status !== 'EN_ROUTE' && trip.status !== 'UNDELIVERABLE') {
         return res.status(400).json({
           error: `Cannot transition from ${trip.status} to CANCELLED`,
         });
