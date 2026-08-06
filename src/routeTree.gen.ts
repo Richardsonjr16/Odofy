@@ -25,6 +25,7 @@ import { Route as TrackRouteImport } from './routes/track'
 import { Route as TripsRouteImport } from './routes/trips'
 import { Route as AdminDriversRouteImport } from './routes/admin/drivers'
 import { Route as AdminTaxesRouteImport } from './routes/admin/taxes'
+import { Route as CustomerDashboardRouteImport } from './routes/customer/dashboard'
 import { Route as MerchantDashboardRouteImport } from './routes/merchant/dashboard'
 import { Route as MerchantMarketingRouteImport } from './routes/merchant/marketing'
 import { Route as StoreIndexRouteImport } from './routes/store/index'
@@ -111,6 +112,11 @@ const AdminTaxesRoute = AdminTaxesRouteImport.update({
   path: '/taxes',
   getParentRoute: () => AdminRoute,
 } as any)
+const CustomerDashboardRoute = CustomerDashboardRouteImport.update({
+  id: '/customer/dashboard',
+  path: '/customer/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MerchantDashboardRoute = MerchantDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
+  '/customer/dashboard': typeof CustomerDashboardRoute
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
   '/store/$merchant_slug': typeof StoreMerchant_slugRoute
@@ -176,6 +183,7 @@ export interface FileRoutesByTo {
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
+  '/customer/dashboard': typeof CustomerDashboardRoute
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
   '/store/$merchant_slug': typeof StoreMerchant_slugRoute
@@ -200,6 +208,7 @@ export interface FileRoutesById {
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
+  '/customer/dashboard': typeof CustomerDashboardRoute
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
   '/store/$merchant_slug': typeof StoreMerchant_slugRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
+    | '/customer/dashboard'
     | '/merchant/dashboard'
     | '/merchant/marketing'
     | '/store/$merchant_slug'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
+    | '/customer/dashboard'
     | '/merchant/dashboard'
     | '/merchant/marketing'
     | '/store/$merchant_slug'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
+    | '/customer/dashboard'
     | '/merchant/dashboard'
     | '/merchant/marketing'
     | '/store/$merchant_slug'
@@ -292,6 +304,7 @@ export interface RootRouteChildren {
   StoreRoute: typeof StoreRouteWithChildren
   TrackRoute: typeof TrackRoute
   TripsRoute: typeof TripsRoute
+  CustomerDashboardRoute: typeof CustomerDashboardRoute
   TOrderIdRoute: typeof TOrderIdRoute
 }
 
@@ -409,6 +422,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTaxesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/customer/dashboard': {
+      id: '/customer/dashboard'
+      path: '/customer/dashboard'
+      fullPath: '/customer/dashboard'
+      preLoaderRoute: typeof CustomerDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/merchant/dashboard': {
       id: '/merchant/dashboard'
       path: '/dashboard'
@@ -500,6 +520,7 @@ const rootRouteChildren: RootRouteChildren = {
   StoreRoute: StoreRouteWithChildren,
   TrackRoute: TrackRoute,
   TripsRoute: TripsRoute,
+  CustomerDashboardRoute: CustomerDashboardRoute,
   TOrderIdRoute: TOrderIdRoute,
 }
 export const routeTree = rootRouteImport
