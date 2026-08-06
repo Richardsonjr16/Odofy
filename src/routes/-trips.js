@@ -182,9 +182,10 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
         return res.status(400).json({ error: 'Trip is already claimed' });
       }
 
+      let rawToken;
       const result = await pool.query(
-        `UPDATE odofy_trips SET status = $1, driver_id = $2, driver_payout = 6.50, platform_profit = 2.00 WHERE uuid = $3 RETURNING *`,
-        ['EN_ROUTE', driverId, tripId]
+        `UPDATE odofy_trips SET status = $1, driver_id = $2, driver_payout = 6.50, platform_profit = 2.00, verification_token_hash = $4, verification_token_raw = $5, token_expires_at = NOW() + INTERVAL '30 minutes' WHERE uuid = $3 RETURNING *`,
+        ['EN_ROUTE', driverId, tripId, crypto.createHash('sha256').update((rawToken = crypto.randomBytes(16).toString('hex'))).digest('hex'), rawToken]
       );
 
       const claimedTrip = { ...result.rows[0], merchant_lat: trip.merchant_lat, merchant_lng: trip.merchant_lng };
@@ -221,12 +222,15 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
           [batchId, tripId]
         );
 
+        const stackedRawToken = crypto.randomBytes(16).toString('hex');
         await pool.query(
           `UPDATE odofy_trips
            SET batch_id = $1, driver_payout = 2.50, platform_profit = 6.00,
-               status = 'EN_ROUTE', driver_id = $2
+               status = 'EN_ROUTE', driver_id = $2,
+               verification_token_hash = $4, verification_token_raw = $5,
+               token_expires_at = NOW() + INTERVAL '30 minutes'
            WHERE uuid = $3`,
-          [batchId, driverId, stackedTrip.uuid]
+          [batchId, driverId, stackedTrip.uuid, crypto.createHash('sha256').update(stackedRawToken).digest('hex'), stackedRawToken]
         );
 
         claimedTrip.batch_id = batchId;
@@ -267,6 +271,7 @@ router.patch('/:id/status', authenticateDriver, async (req, res) => {
         ...claimedTrip,
         totalStops,
         crossStackBonus,
+        verification_token: rawToken,
       });
     }
 
