@@ -297,4 +297,65 @@ router.get('/fulfillment', async (req, res) => {
   }
 });
 
+// ── Public storefront: merchant by slug ──
+router.get('/store/:slug', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT uuid, business_name, slug, storefront_address, latitude, longitude FROM odofy_merchants WHERE slug = $1',
+      [req.params.slug]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Store not found' });
+    return res.json({ merchant: result.rows[0] });
+  } catch (err) {
+    console.error('Store slug lookup error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/store/:slug/products', async (req, res) => {
+  try {
+    const merchant = await pool.query('SELECT uuid, business_name, slug FROM odofy_merchants WHERE slug = $1', [req.params.slug]);
+    if (!merchant.rows.length) return res.status(404).json({ error: 'Store not found' });
+    const products = await pool.query(
+      'SELECT id, title, description, price_cents, image_url, in_stock FROM merchant_products WHERE merchant_id = $1 AND in_stock = true ORDER BY created_at DESC',
+      [merchant.rows[0].uuid]
+    );
+    return res.json({ merchant: merchant.rows[0], products: products.rows });
+  } catch (err) {
+    console.error('Store products fetch error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/store/:slug/checkout', async (req, res) => {
+  try {
+    const merchant = await pool.query('SELECT uuid, business_name, latitude, longitude FROM odofy_merchants WHERE slug = $1', [req.params.slug]);
+    if (!merchant.rows.length) return res.status(404).json({ error: 'Store not found' });
+    const m = merchant.rows[0];
+    const { customer_name, customer_phone, delivery_address, items } = req.body || {};
+    if (!customer_name || !delivery_address || !items || !items.length) {
+      return res.status(400).json({ error: 'Missing required fields: customer_name, delivery_address, items' });
+    }
+    let totalCents = 0;
+    for (const item of items) {
+      const p = await pool.query('SELECT price_cents FROM merchant_products WHERE id = $1 AND merchant_id = $2', [item.product_id, m.uuid]);
+      if (p.rows.length) totalCents += p.rows[0].price_cents * (item.qty || 1);
+    }
+    const orderNumber = 'ODF-' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
+    const result = await pool.query(
+      `INSERT INTO odofy_trips (uuid, merchant_id, order_number, customer_name, customer_phone, delivery_address,
+        dest_latitude, dest_longitude, status, driver_payout, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING', $9, NOW()) RETURNING uuid, order_number, status`,
+      [require('crypto').randomUUID(), m.uuid, orderNumber, customer_name, customer_phone || null, delivery_address,
+       m.latitude, m.longitude, totalCents]
+    );
+    console.log(`[ORDER] New order ${orderNumber} for ${req.params.slug} — ${items.length} items, $${(totalCents/100).toFixed(2)}`);
+    return res.json({ success: true, order: result.rows[0] });
+  } catch (err) {
+    console.error('Store checkout error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
+
