@@ -959,6 +959,7 @@ function DashboardPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       setIsReturning(false);
+      setClaimedTrip((current) => current ? { ...current, driver_payout: "12.75" } : current);
       setClaimedTrip(null);
       setActiveDeliveryStep("IDLE");
       setRestockSuccess(true);
@@ -1319,7 +1320,7 @@ function DashboardPage() {
             </div>
           )}
 
-          {restockSuccess && <p className="text-center text-sm font-bold text-green-700">Return restock confirmed.</p>}
+          {restockSuccess && <p className="text-center text-sm font-bold text-green-700">Return restock confirmed — payout: $12.75.</p>}
 
           {/* Slide to confirm arrival */}
           {!isReturning && <div className="mt-1">
@@ -1671,7 +1672,7 @@ function DashboardPage() {
               {targetedTrip &&
                 (() => {
                   const basePayout =
-                    parseFloat(targetedTrip.driver_payout) || 6.5;
+                    parseFloat(targetedTrip.driver_payout) || 8.5;
                   const tip =
                     parseFloat(targetedTrip.driver_tip_allocation) || 0;
                   const total = basePayout + tip;
@@ -1832,7 +1833,7 @@ function DashboardPage() {
                     <div data-trip-deck>
                       {visibleTrips.map((trip, idx) => {
                         const basePayout =
-                          parseFloat(trip.driver_payout) || 6.5;
+                          parseFloat(trip.driver_payout) || 8.5;
                         const tip =
                           parseFloat(trip.driver_tip_allocation) || 0;
                         const total = basePayout + tip;
