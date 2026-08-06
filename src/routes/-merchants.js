@@ -220,6 +220,41 @@ router.patch('/products/:id', async (req, res) => {
   }
 });
 
+// GET /public-products — public storefront catalog (no auth required)
+router.get('/public-products', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, title, description, price_cents, image_url, in_stock, merchant_id
+       FROM merchant_products
+       ORDER BY created_at DESC`
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('Public products fetch error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/products/:id/update-inventory', async (req, res) => {
+  try {
+    const merchantId = await resolveMerchant(req, res);
+    if (!merchantId) return;
+    const { in_stock, price } = req.body || {};
+    if (typeof in_stock !== 'boolean' || !Number.isInteger(price) || price < 0) {
+      return res.status(400).json({ error: 'in_stock (boolean) and price (non-negative integer cents) are required' });
+    }
+    const result = await pool.query(
+      'UPDATE merchant_products SET in_stock = $1, price_cents = $2, updated_at = NOW() WHERE id = $3 AND merchant_id = $4 RETURNING *',
+      [in_stock, price, req.params.id, merchantId]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Product not found' });
+    return res.json({ success: true, product: result.rows[0] });
+  } catch (err) {
+    console.error('Merchant product inventory update error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.delete('/products/:id', async (req, res) => {
   try {
     const merchantId = await resolveMerchant(req, res);
