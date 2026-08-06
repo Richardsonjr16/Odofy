@@ -143,4 +143,106 @@ router.get('/orders', async (req, res) => {
   }
 });
 
+async function resolveMerchant(req, res) {
+  const email = req.headers['x-merchant-email'];
+  if (!email) {
+    res.status(401).json({ error: 'Merchant email header required' });
+    return null;
+  }
+  const result = await pool.query('SELECT uuid FROM odofy_merchants WHERE contact_email = $1', [email]);
+  if (result.rows.length === 0) {
+    res.status(401).json({ error: 'Merchant not found' });
+    return null;
+  }
+  return result.rows[0].uuid;
+}
+
+router.get('/products', async (req, res) => {
+  try {
+    const merchantId = await resolveMerchant(req, res);
+    if (!merchantId) return;
+    const result = await pool.query('SELECT * FROM merchant_products WHERE merchant_id = $1 ORDER BY created_at DESC', [merchantId]);
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('Merchant products fetch error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/products', async (req, res) => {
+  try {
+    const merchantId = await resolveMerchant(req, res);
+    if (!merchantId) return;
+    const { title, description, price_cents, image_url } = req.body || {};
+    if (!title || !Number.isInteger(price_cents) || price_cents < 0) return res.status(400).json({ error: 'title and non-negative integer price_cents are required' });
+    const result = await pool.query(
+      'INSERT INTO merchant_products (merchant_id, title, description, price_cents, image_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [merchantId, title.trim(), description || null, price_cents, image_url || null]
+    );
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Merchant product create error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/products/:id/toggle-stock', async (req, res) => {
+  try {
+    const merchantId = await resolveMerchant(req, res);
+    if (!merchantId) return;
+    if (typeof req.body?.in_stock !== 'boolean') return res.status(400).json({ error: 'in_stock must be boolean' });
+    const result = await pool.query('UPDATE merchant_products SET in_stock = $1, updated_at = NOW() WHERE id = $2 AND merchant_id = $3 RETURNING *', [req.body.in_stock, req.params.id, merchantId]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Product not found' });
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Merchant product stock update error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/products/:id', async (req, res) => {
+  try {
+    const merchantId = await resolveMerchant(req, res);
+    if (!merchantId) return;
+    const allowed = ['title', 'description', 'price_cents', 'image_url'];
+    const entries = Object.entries(req.body || {}).filter(([key, value]) => allowed.includes(key) && value !== undefined);
+    if (!entries.length) return res.status(400).json({ error: 'No editable fields supplied' });
+    if (entries.some(([key, value]) => key === 'title' && (!value || typeof value !== 'string') || key === 'price_cents' && (!Number.isInteger(value) || value < 0))) return res.status(400).json({ error: 'Invalid product fields' });
+    const values = entries.map(([, value]) => value);
+    const setClause = entries.map(([key], index) => `${key} = $${index + 1}`).concat('updated_at = NOW()').join(', ');
+    values.push(req.params.id, merchantId);
+    const result = await pool.query(`UPDATE merchant_products SET ${setClause} WHERE id = $${values.length - 1} AND merchant_id = $${values.length} RETURNING *`, values);
+    if (!result.rows.length) return res.status(404).json({ error: 'Product not found' });
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Merchant product update error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/products/:id', async (req, res) => {
+  try {
+    const merchantId = await resolveMerchant(req, res);
+    if (!merchantId) return;
+    const result = await pool.query('DELETE FROM merchant_products WHERE id = $1 AND merchant_id = $2 RETURNING id', [req.params.id, merchantId]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Product not found' });
+    return res.status(204).send();
+  } catch (err) {
+    console.error('Merchant product delete error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/fulfillment', async (req, res) => {
+  try {
+    const merchantId = await resolveMerchant(req, res);
+    if (!merchantId) return;
+    const result = await pool.query(`SELECT t.uuid, t.order_number, t.status, t.customer_name, t.delivery_address, NULLIF(TRIM(CONCAT(d.first_name, ' ', d.last_name)), '') AS driver_name, t.proof_of_delivery_url, t.created_at FROM odofy_trips t LEFT JOIN odofy_drivers d ON d.uuid = t.driver_id WHERE t.merchant_id = $1 ORDER BY t.created_at DESC LIMIT 50`, [merchantId]);
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('Merchant fulfillment fetch error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
