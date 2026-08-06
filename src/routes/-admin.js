@@ -4,6 +4,15 @@ const { sendSms } = require('../lib/sms');
 
 const router = express.Router();
 
+const disputeListFields = `
+  d.id, d.order_id, d.order_id AS order_number, d.merchant_id, d.customer_id, d.reason_category,
+  d.description, d.proof_image_url, d.status, d.created_at,
+  t.uuid AS trip_id, t.customer_name, t.delivery_address, t.proof_of_delivery_url,
+  m.business_name,
+  CASE WHEN dr.uuid IS NOT NULL THEN CONCAT(dr.first_name, ' ', dr.last_name) END AS driver_name,
+  dr.uuid AS driver_id
+`;
+
 function authenticateAdmin(req, res, next) {
   const apiKey = req.headers['x-api-key'];
 
@@ -13,6 +22,76 @@ function authenticateAdmin(req, res, next) {
 
   next();
 }
+
+router.get('/disputes', authenticateAdmin, async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT ${disputeListFields}
+      FROM disputes_ledger d
+      LEFT JOIN odofy_trips t ON t.uuid = d.order_id
+      LEFT JOIN odofy_merchants m ON m.uuid = d.merchant_id
+      LEFT JOIN odofy_drivers dr ON dr.uuid = t.driver_id
+      ORDER BY d.created_at DESC
+    `);
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Fetch disputes error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/disputes/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT ${disputeListFields}
+      FROM disputes_ledger d
+      LEFT JOIN odofy_trips t ON t.uuid = d.order_id
+      LEFT JOIN odofy_merchants m ON m.uuid = d.merchant_id
+      LEFT JOIN odofy_drivers dr ON dr.uuid = t.driver_id
+      WHERE d.id = $1
+    `, [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Dispute not found' });
+    return res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error('Fetch dispute error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/disputes/:id/resolve', authenticateAdmin, async (req, res) => {
+  const { action } = req.body || {};
+  if (!['APPROVE', 'DENY'].includes(action)) {
+    return res.status(400).json({ error: "action must be 'APPROVE' or 'DENY'" });
+  }
+  try {
+    const status = action === 'APPROVE' ? 'APPROVED_CREDIT' : 'DENIED_DISPUTE';
+    const result = await pool.query(`
+      UPDATE disputes_ledger
+      SET status = $1, resolved_at = NOW(),
+          resolution_notes = $2
+      WHERE id = $3 AND status = 'PENDING'
+      RETURNING *
+    `, [status, action === 'APPROVE' ? 'Merchant credit approved; Stripe credit execution pending integration.' : 'Dispute denied by administration.', req.params.id]);
+    if (result.rows.length === 0) {
+      const existing = await pool.query('SELECT status FROM disputes_ledger WHERE id = $1', [req.params.id]);
+      if (existing.rows.length === 0) return res.status(404).json({ error: 'Dispute not found' });
+      return res.status(400).json({ error: 'Dispute is already resolved' });
+    }
+    const updated = await pool.query(`
+      SELECT ${disputeListFields}
+      FROM disputes_ledger d
+      LEFT JOIN odofy_trips t ON t.uuid = d.order_id
+      LEFT JOIN odofy_merchants m ON m.uuid = d.merchant_id
+      LEFT JOIN odofy_drivers dr ON dr.uuid = t.driver_id
+      WHERE d.id = $1
+    `, [req.params.id]);
+    console.info('Stripe credit execution hook', { disputeId: req.params.id, action, status: 'NOT_WIRED' });
+    return res.status(200).json({ dispute: updated.rows[0], credit_execution: 'pending_stripe_integration' });
+  } catch (err) {
+    console.error('Resolve dispute error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 router.get('/drivers', authenticateAdmin, async (_req, res) => {
   try {
