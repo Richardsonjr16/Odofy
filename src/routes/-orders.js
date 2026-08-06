@@ -45,3 +45,41 @@ router.post('/execute-return-restock', authenticateDriver, async (req, res) => {
   }
 });
 module.exports = router;
+
+router.post('/generate-verification-token', authenticateDriver, async (req, res) => {
+  const { order_id: tripId } = req.body || {};
+  if (!tripId) return res.status(400).json({ error: 'Missing required field: order_id' });
+  try {
+    const trip = (await pool.query('SELECT uuid, driver_id, status FROM odofy_trips WHERE uuid = $1', [tripId])).rows[0];
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    if (trip.driver_id !== req.driver.uuid) return res.status(403).json({ error: 'Trip does not belong to this driver' });
+    if (!['EN_ROUTE', 'IN_TRANSIT'].includes(trip.status)) return res.status(400).json({ error: 'Trip must be en route' });
+    const rawToken = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    await pool.query("UPDATE odofy_trips SET verification_token_hash=$1, verification_token_raw=$2, token_expires_at=NOW()+INTERVAL '30 minutes' WHERE uuid=$3", [hash, rawToken, tripId]);
+    return res.json({ verification_token: rawToken });
+  } catch (err) { console.error('Generate verification token error:', err); return res.status(500).json({ error: 'Internal server error' }); }
+});
+
+router.post('/verify-qr-handshake', authenticateDriver, async (req, res) => {
+  const { order_id: tripId, token } = req.body || {};
+  if (!tripId || typeof token !== 'string' || !token) return res.status(400).json({ error: 'Missing required fields: order_id, token' });
+  try {
+    const trip = (await pool.query('SELECT uuid, driver_id, status, verification_token_hash, token_expires_at FROM odofy_trips WHERE uuid=$1', [tripId])).rows[0];
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    if (trip.driver_id !== req.driver.uuid) return res.status(403).json({ error: 'Trip does not belong to this driver' });
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    if (!trip.verification_token_hash || hash !== trip.verification_token_hash || !trip.token_expires_at || new Date(trip.token_expires_at) <= new Date()) return res.status(400).json({ error: 'Invalid or expired verification token' });
+    const result = await pool.query("UPDATE odofy_trips SET status='DELIVERED', verification_token_hash=NULL, verification_token_raw=NULL, token_expires_at=NULL WHERE uuid=$1 AND status IN ('EN_ROUTE','IN_TRANSIT') AND verification_token_hash=$2 RETURNING uuid", [tripId, hash]);
+    if (!result.rows.length) return res.status(400).json({ error: 'Invalid or expired verification token' });
+    return res.json({ verified: true });
+  } catch (err) { console.error('QR handshake verification error:', err); return res.status(500).json({ error: 'Internal server error' }); }
+});
+
+router.get('/:id/verification-token', async (req, res) => {
+  try {
+    const result = await pool.query("SELECT verification_token_raw FROM odofy_trips WHERE (uuid=$1 OR order_number=$1) AND status IN ('EN_ROUTE','IN_TRANSIT') AND token_expires_at > NOW()", [req.params.id]);
+    if (!result.rows.length || !result.rows[0].verification_token_raw) return res.status(404).json({ error: 'Verification token unavailable' });
+    return res.json({ verification_token: result.rows[0].verification_token_raw });
+  } catch (err) { console.error('Fetch verification token error:', err); return res.status(500).json({ error: 'Internal server error' }); }
+});
