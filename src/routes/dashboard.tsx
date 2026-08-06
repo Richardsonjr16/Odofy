@@ -483,6 +483,61 @@ function DashboardPage() {
   const [scannerError, setScannerError] = useState("");
   const [showGeofenceWarning, setShowGeofenceWarning] = useState(false);
   const [arrivalSlideKey, setArrivalSlideKey] = useState(0);
+  const [isCountdownActive, setIsCountdownActive] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(300);
+  const countdownTimerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // ── Customer unreachable countdown ──
+  useEffect(() => {
+    if (!claimedTrip || activeDeliveryStep !== "EN_ROUTE") return;
+    const customerLat = Number(claimedTrip.dest_latitude);
+    const customerLng = Number(claimedTrip.dest_longitude);
+    const distanceFt = currentLocation
+      ? haversineDistance(
+          currentLocation.lat,
+          currentLocation.lng,
+          customerLat,
+          customerLng,
+        ) * 5280
+      : Infinity;
+    const withinCustomerGeofence = distanceFt <= 150;
+
+    if (withinCustomerGeofence && !isCountdownActive && !isReturning) {
+      setIsCountdownActive(true);
+      setCountdownSeconds(300);
+      countdownTimerIntervalRef.current = setInterval(() => {
+        setCountdownSeconds(prev => {
+          if (prev <= 1) {
+            if (countdownTimerIntervalRef.current) {
+              clearInterval(countdownTimerIntervalRef.current);
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    if (!withinCustomerGeofence && isCountdownActive) {
+      if (countdownTimerIntervalRef.current) {
+        clearInterval(countdownTimerIntervalRef.current);
+      }
+      setIsCountdownActive(false);
+      setCountdownSeconds(300);
+    }
+    return () => {
+      if (countdownTimerIntervalRef.current) {
+        clearInterval(countdownTimerIntervalRef.current);
+      }
+    };
+  }, [currentLocation, claimedTrip, activeDeliveryStep, isReturning, isCountdownActive]);
+
+  const handleCustomerIntercept = () => {
+    if (countdownTimerIntervalRef.current) {
+      clearInterval(countdownTimerIntervalRef.current);
+    }
+    setIsCountdownActive(false);
+    setCountdownSeconds(300);
+  };
+
   // ── Derived from claimed/selected trip data ──
   const totalStops = useMemo(() => {
     if (claimedTrip?.total_stops) return claimedTrip.total_stops;
@@ -1356,6 +1411,11 @@ function DashboardPage() {
       const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
       return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
     })();
+    const withinCustomerGeofence = Boolean(
+      currentLocation &&
+      tripDistance * 5280 <= 150
+    );
+
     const orderNumber =
       claimedTrip.order_number || claimedTrip.uuid.slice(0, 6);
     const customerName = claimedTrip.customer_name || "Customer";
@@ -1543,6 +1603,26 @@ function DashboardPage() {
             </p>
           )}
 
+          {/* ── Customer Unreachable Countdown ── */}
+          {!isReturning && isCountdownActive && (
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 mt-3 text-center animate-pulse">
+              <p className="text-amber-800 font-black text-sm mb-1">
+                ⏳ Customer Not Responding
+              </p>
+              <p className="text-amber-700 text-xs mb-3">
+                Waiting for customer to arrive at drop-off location
+              </p>
+              <div className="text-3xl font-black text-amber-900 mb-3 tabular-nums">
+                {Math.floor(countdownSeconds / 60)}:{String(countdownSeconds % 60).padStart(2, "0")}
+              </div>
+              <button
+                onClick={handleCustomerIntercept}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all active:scale-[0.99]"
+              >
+                👋 Customer Has Arrived
+              </button>
+            </div>
+          )}
           {/* Slide to confirm arrival */}
           {!isReturning && (
             <div className="mt-1">
