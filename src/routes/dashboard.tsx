@@ -427,6 +427,11 @@ function DashboardPage() {
     null,
   );
 
+  // ── Predictive Demand Heatmap state ──
+  const [heatmapData, setHeatmapData] = useState<any[]>([]);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const heatmapLayerRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
+
   // ── Speed limit resolution via OpenStreetMap Overpass API ──
   useEffect(() => {
     if (!currentLocation) return;
@@ -464,6 +469,57 @@ function DashboardPage() {
       cancelled = true;
     };
   }, [currentLocation]);
+  // ── Predictive Demand Heatmap: fetch every 5 min ──
+  useEffect(() => {
+    if (!profile?.uuid) return;
+    const token = sessionStorage.getItem("odofy_driver_token");
+    if (!token) return;
+
+    const fetchHeatmap = () => {
+      fetch("/api/v1/driver/predictive-demand", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.json())
+        .then((data: any[]) => setHeatmapData(data))
+        .catch(() => {}); // silent fail — heatmap is non-critical
+    };
+
+    fetchHeatmap();
+    const interval = setInterval(fetchHeatmap, 300000);
+    return () => clearInterval(interval);
+  }, [profile?.uuid]);
+
+  // ── Predictive Demand Heatmap: render Google Maps heatmap layer ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !window.google?.maps?.visualization) return;
+
+    // Clear previous layer
+    if (heatmapLayerRef.current) {
+      heatmapLayerRef.current.setMap(null);
+      heatmapLayerRef.current = null;
+    }
+
+    if (heatmapData.length === 0) return;
+
+    const points = heatmapData.map((p: any) => ({
+      location: new google.maps.LatLng(p.lat, p.lng),
+      weight: p.weight,
+    }));
+
+    heatmapLayerRef.current = new google.maps.visualization.HeatmapLayer({
+      data: new google.maps.MVCArray(points),
+      map: showHeatmap ? map : null,
+      radius: 30,
+      opacity: 0.6,
+      gradient: [
+        "rgba(0,0,0,0)",
+        "rgba(0,0,0,0)",
+        "rgba(255,140,0,0.6)",
+        "rgba(255,0,0,0.8)",
+      ],
+    });
+  }, [heatmapData, mapRef.current, showHeatmap]);
 
   // ── NEW STATE: Delivery flow ──
   const [activeDeliveryStep, setActiveDeliveryStep] = useState<
@@ -2003,6 +2059,20 @@ function DashboardPage() {
                 markers={mapMarkers}
                 currentLocation={currentLocation}
               />
+
+              {/* ── Demand Heatmap Toggle ── */}
+              <button
+                onClick={() => {
+                  const next = !showHeatmap;
+                  setShowHeatmap(next);
+                  if (heatmapLayerRef.current) {
+                    heatmapLayerRef.current.setMap(next ? mapRef.current : null);
+                  }
+                }}
+                className="absolute bottom-20 right-4 z-50 bg-[#5E0009] text-white text-xs font-bold py-3 px-4 rounded-xl shadow-xl transition-all"
+              >
+                {showHeatmap ? "🔥 Hide Demand Hotzones" : "🔥 Show Demand Hotzones"}
+              </button>
 
               {locationError && (
                 <div className="absolute bottom-4 left-4 bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium px-2 py-1 rounded-full z-20">
