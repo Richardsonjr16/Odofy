@@ -10,6 +10,13 @@ const router = express.Router();
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
+function slugify(name) {
+  return String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
 
 router.post('/register', async (req, res) => {
   try {
@@ -36,12 +43,20 @@ router.post('/register', async (req, res) => {
     const passwordHash = password ? hashPassword(password) : null;
     const email = contact_email || null;
 
+    // Auto-generate a unique slug from business_name for the public storefront.
+    const baseSlug = slugify(business_name) || 'merchant';
+    let slug = baseSlug;
+    const slugExists = await pool.query('SELECT 1 FROM odofy_merchants WHERE slug = $1 LIMIT 1', [slug]);
+    if (slugExists.rows.length) {
+      slug = `${baseSlug}-${crypto.randomBytes(3).toString('hex')}`;
+    }
+
     const result = await pool.query(
       `INSERT INTO odofy_merchants
-         (uuid, business_name, storefront_address, latitude, longitude, api_secret_key, shop_domain, contact_email, password_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (uuid, business_name, storefront_address, latitude, longitude, api_secret_key, shop_domain, contact_email, password_hash, slug)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [uuidv4(), business_name, storefront_address, latitude, longitude, apiSecretKey, shop_domain || null, email, passwordHash]
+      [uuidv4(), business_name, storefront_address, latitude, longitude, apiSecretKey, shop_domain || null, email, passwordHash, slug]
     );
 
     const merchant = result.rows[0];
@@ -224,9 +239,11 @@ router.patch('/products/:id', async (req, res) => {
 router.get('/public-products', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, title, description, price_cents, image_url, in_stock, merchant_id
-       FROM merchant_products
-       ORDER BY created_at DESC`
+      `SELECT p.id, p.title, p.description, p.price_cents, p.image_url, p.in_stock, p.merchant_id,
+              m.business_name AS merchant_name, m.slug AS merchant_slug
+       FROM merchant_products p
+       LEFT JOIN odofy_merchants m ON m.uuid = p.merchant_id
+       ORDER BY p.created_at DESC`
     );
     return res.json(result.rows);
   } catch (err) {
