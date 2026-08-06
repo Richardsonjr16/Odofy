@@ -115,12 +115,28 @@ function MerchantPage() {
               )}
             </div>
           </div>
-          <a
-            href="/merchant-login"
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
-          >
-            Account
-          </a>
+          <div className="flex items-center gap-4">
+            <nav className="flex items-center gap-1">
+              <a
+                href="/merchant/dashboard"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+              >
+                Dashboard
+              </a>
+              <a
+                href="/merchant/marketing"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+              >
+                Marketing
+              </a>
+            </nav>
+            <a
+              href="/merchant-login"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+            >
+              Account
+            </a>
+          </div>
         </div>
       </header>
 
