@@ -194,10 +194,10 @@ function StorePage() {
                 <div className="relative">
                   <img
                     src={
-                      product.image_url || "https://placehold.co/300x200/f3f4f6/d1d5db?text=No+Image"
+                      product.image_url || '/assets/images/default-item-placeholder.png'
                     }
                     alt={product.title}
-                    className="w-full h-40 object-cover"
+                    className="w-full h-40 object-cover rounded-xl"
                   />
                   {!product.in_stock && (
                     <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
@@ -215,13 +215,18 @@ function StorePage() {
                   <p className="text-[#5E0009] font-black text-lg mt-2">
                     ${(product.price_cents / 100).toFixed(2)}
                   </p>
-                  <button
-                    onClick={() => addToCart(product)}
-                    disabled={!product.in_stock}
-                    className="w-full mt-2 bg-[#5E0009] text-white font-bold py-2 rounded-xl text-sm transition-all active:scale-[0.98] disabled:bg-gray-300 disabled:text-gray-500"
-                  >
-                    {product.in_stock ? "[ + Add to Bag ]" : "Out of Stock"}
-                  </button>
+                  {product.in_stock ? (
+                    <button
+                      onClick={() => addToCart(product)}
+                      className="w-full bg-[#5E0009] hover:bg-[#4a0007] text-white font-extrabold py-2.5 px-4 rounded-xl text-xs mt-3 shadow-sm transition-all active:scale-[0.98]"
+                    >
+                      + Add to Bag
+                    </button>
+                  ) : (
+                    <button disabled className="w-full bg-gray-100 text-gray-400 font-bold py-2.5 px-4 rounded-xl text-xs mt-3 cursor-not-allowed">
+                      Sold Out
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
