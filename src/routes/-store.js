@@ -6,12 +6,24 @@ const router = express.Router();
 // 6-char alphanumeric code (no ambiguous 0/O/1/I) for ODF-XXXXXX order numbers.
 const ORDER_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+// 6-char uppercase room codes for group carts — same non-ambiguous alphabet so
+// codes are easy to read over the phone and to type on a TV remote.
+const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
 function generateOrderNumber() {
   let code = '';
   for (let i = 0; i < 6; i++) {
     code += ORDER_CODE_ALPHABET[crypto.randomInt(ORDER_CODE_ALPHABET.length)];
   }
   return `ODF-${code}`;
+}
+
+function generateRoomCode() {
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += ROOM_CODE_ALPHABET[crypto.randomInt(ROOM_CODE_ALPHABET.length)];
+  }
+  return code;
 }
 
 function toMerchantRow(m) {
@@ -144,6 +156,89 @@ router.post('/:slug/checkout', async (req, res) => {
     });
   } catch (err) {
     console.error('Storefront checkout error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/v1/store/:slug/group-cart — create a shared group cart (no auth).
+// Generates a unique 6-char room code and returns it alongside the cart id so
+// the storefront can open a WebSocket to /ws?room=CODE and broadcast joins.
+router.post('/:slug/group-cart', async (req, res) => {
+  try {
+    const merchant = await findMerchantBySlug(req.params.slug);
+    if (!merchant) return res.status(404).json({ error: 'Merchant not found' });
+
+    const hostUserId =
+      req.body && typeof req.body.host_user_id === 'string' && req.body.host_user_id.trim()
+        ? req.body.host_user_id.trim()
+        : null;
+
+    let roomCode = generateRoomCode();
+    let inserted = null;
+    // Room codes are UNIQUE — retry a few times on collision before giving up.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const result = await pool.query(
+          `INSERT INTO shared_carts (room_code, merchant_id, host_user_id)
+           VALUES ($1, $2, $3)
+           RETURNING id, room_code`,
+          [roomCode, merchant.uuid, hostUserId]
+        );
+        inserted = result.rows[0];
+        break;
+      } catch (err) {
+        if (err && err.code === '23505' && attempt < 4) {
+          roomCode = generateRoomCode();
+          continue;
+        }
+        throw err;
+      }
+    }
+    if (!inserted) {
+      return res.status(500).json({ error: 'Failed to allocate a unique room code' });
+    }
+
+    console.log(`[GROUP-CART] Created room ${inserted.room_code} for merchant ${req.params.slug}`);
+    return res.status(201).json({ room_code: inserted.room_code, shared_cart_id: inserted.id });
+  } catch (err) {
+    console.error('Group cart creation error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/v1/store/:slug/group-cart/:roomCode — current aggregate cart contents
+// (no auth). Lets a late joiner hydrate their UI before/without opening a WS.
+router.get('/:slug/group-cart/:roomCode', async (req, res) => {
+  try {
+    const merchant = await findMerchantBySlug(req.params.slug);
+    if (!merchant) return res.status(404).json({ error: 'Merchant not found' });
+
+    const roomCode = String(req.params.roomCode || '').toUpperCase();
+    const cartResult = await pool.query(
+      'SELECT id, room_code, status FROM shared_carts WHERE room_code = $1 AND merchant_id = $2',
+      [roomCode, merchant.uuid]
+    );
+    if (cartResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Cart not found' });
+    }
+    const cart = cartResult.rows[0];
+    const itemsResult = await pool.query(
+      `SELECT sci.id, sci.user_id, sci.product_id, sci.quantity,
+              mp.title, mp.price_cents, mp.image_url
+       FROM shared_cart_items sci
+       JOIN merchant_products mp ON mp.id = sci.product_id
+       WHERE sci.shared_cart_id = $1
+       ORDER BY sci.created_at ASC`,
+      [cart.id]
+    );
+    return res.json({
+      room_code: cart.room_code,
+      status: cart.status,
+      shared_cart_id: cart.id,
+      items: itemsResult.rows,
+    });
+  } catch (err) {
+    console.error('Group cart fetch error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
