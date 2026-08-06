@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, useRouter } from "@tanstack/react-router";
 import { useState, useCallback, useEffect } from "react";
+import { DisputesPanel } from "./admin/disputes";
 
 const ADMIN_KEY_STORAGE = "odofy_admin_key";
 const API_BASE = "/api/v1/odofy/admin";
@@ -57,7 +58,7 @@ interface Analytics {
   platformMargin: number;
 }
 
-type Tab = "drivers" | "deliveries" | "merchants" | "analytics";
+type Tab = "drivers" | "deliveries" | "merchants" | "analytics" | "disputes";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -229,6 +230,7 @@ function AdminPage() {
               ["deliveries", "Live Deliveries"],
               ["merchants", "Merchant Ledger"],
               ["analytics", "Financial Analytics"],
+              ["disputes", "Refund & Disputes"],
             ] as [Tab, string][]
           ).map(([tab, label]) => (
             <button
@@ -321,6 +323,7 @@ function AdminPage() {
               }}
             />
           )}
+          {activeTab === "disputes" && <DisputesPanel adminKey={apiKey} />}
         </div>
       </main>
     </div>
