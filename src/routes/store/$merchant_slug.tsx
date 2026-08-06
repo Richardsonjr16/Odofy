@@ -40,6 +40,14 @@ function StorePage() {
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
 
+  // Group cart (shared ordering)
+  const [showGroupCart, setShowGroupCart] = useState(false);
+  const [groupRoomCode, setGroupRoomCode] = useState("");
+  const [groupCartItems, setGroupCartItems] = useState<any[]>([]);
+  const [groupWs, setGroupWs] = useState<WebSocket | null>(null);
+  const [groupUserId] = useState(() => "user-" + Math.random().toString(36).slice(2, 8));
+  const [groupJoined, setGroupJoined] = useState(false);
+
   // Checkout form
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -80,6 +88,13 @@ function StorePage() {
     sessionStorage.setItem(`odofy_cart_${merchant_slug}`, JSON.stringify(cart));
   }, [cart, merchant_slug]);
 
+  // Close the group-cart WebSocket when the storefront unmounts.
+  useEffect(() => {
+    return () => {
+      groupWs?.close();
+    };
+  }, [groupWs]);
+
   const addToCart = (product: Product) => {
     setCart((prev) => {
       const existing = prev.find((ci) => ci.product.id === product.id);
@@ -90,6 +105,55 @@ function StorePage() {
       }
       return [...prev, { product, qty: 1 }];
     });
+  };
+
+  const handleStartGroupCart = async () => {
+    // POST to create group cart
+    const res = await fetch(`/api/v1/store/${merchant_slug}/group-cart`, { method: "POST" });
+    const data = await res.json();
+    if (!data.room_code) return alert("Failed to create group cart");
+
+    setGroupRoomCode(data.room_code);
+    setShowGroupCart(true);
+
+    // Connect WebSocket
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        type: "join_group_cart",
+        roomCode: data.room_code,
+        userId: groupUserId
+      }));
+      setGroupJoined(true);
+    };
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "cart_update") {
+        setGroupCartItems(msg.items || []);
+      } else if (msg.type === "error") {
+        console.error("Group cart error:", msg.message);
+      }
+    };
+
+    ws.onclose = () => {
+      setGroupJoined(false);
+    };
+
+    setGroupWs(ws);
+  };
+
+  const handleAddToGroup = (product: Product) => {
+    if (!groupWs || groupWs.readyState !== WebSocket.OPEN) return;
+    groupWs.send(JSON.stringify({
+      type: "add_item_to_group",
+      roomCode: groupRoomCode,
+      userId: groupUserId,
+      productId: product.id,
+      quantity: 1
+    }));
   };
 
   const cartTotal = cart.reduce(
@@ -202,6 +266,58 @@ function StorePage() {
 
       {/* Product grid */}
       <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Group order cart */}
+        <button
+          onClick={handleStartGroupCart}
+          className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-sm mb-4 transition-all"
+        >
+          👥 Start a Group Order Cart
+        </button>
+        {showGroupCart && (
+          <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 my-2 text-center">
+            <p className="text-xs font-semibold text-gray-700">
+              Invite code: <span className="text-[#5E0009] font-black text-sm tracking-widest">{groupRoomCode}</span>
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              {groupJoined ? "🟢 Connected — share this code!" : "⏳ Connecting..."}
+            </p>
+          </div>
+        )}
+        {showGroupCart && groupCartItems.length > 0 && (
+          <div className="bg-white border border-gray-100 rounded-xl p-3 mb-4">
+            <h4 className="text-xs font-bold text-gray-500 mb-2">🛒 Group Cart ({groupCartItems.length} items)</h4>
+            {groupCartItems.map((item: any, idx: number) => (
+              <div key={idx} className="flex justify-between text-xs py-1 border-b border-gray-50 last:border-0">
+                <span className="text-gray-700">
+                  {item.title} <span className="text-gray-400">x{item.quantity}</span>
+                </span>
+                <span className="font-bold text-[#5E0009]">
+                  ${((item.price_cents * item.quantity) / 100).toFixed(2)}
+                </span>
+              </div>
+            ))}
+            <div className="flex justify-between text-sm font-black mt-2 pt-2 border-t border-gray-100">
+              <span>Total</span>
+              <span className="text-[#5E0009]">
+                ${(groupCartItems.reduce((s: number, i: any) => s + i.price_cents * i.quantity, 0) / 100).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
+        {showGroupCart && (
+          <button
+            onClick={() => {
+              groupWs?.close();
+              setShowGroupCart(false);
+              setGroupRoomCode("");
+              setGroupCartItems([]);
+              setGroupJoined(false);
+            }}
+            className="w-full text-xs text-red-500 font-semibold py-2 hover:text-red-700 mb-4"
+          >
+            Leave Group
+          </button>
+        )}
         {products.length === 0 ? (
           <p className="text-center text-gray-400 py-16">
             No products available yet.
@@ -241,7 +357,7 @@ function StorePage() {
                   </p>
                   {product.in_stock ? (
                     <button
-                      onClick={() => addToCart(product)}
+                      onClick={() => (showGroupCart ? handleAddToGroup(product) : addToCart(product))}
                       className="w-full bg-[#5E0009] hover:bg-[#4a0007] text-white font-extrabold py-2.5 px-4 rounded-xl text-xs mt-3 shadow-sm transition-all active:scale-[0.98]"
                     >
                       + Add to Bag

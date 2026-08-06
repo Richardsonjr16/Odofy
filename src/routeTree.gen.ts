@@ -27,6 +27,8 @@ import { Route as AdminDriversRouteImport } from './routes/admin/drivers'
 import { Route as AdminTaxesRouteImport } from './routes/admin/taxes'
 import { Route as MerchantDashboardRouteImport } from './routes/merchant/dashboard'
 import { Route as MerchantMarketingRouteImport } from './routes/merchant/marketing'
+import { Route as StoreIndexRouteImport } from './routes/store/index'
+import { Route as StoreMerchant_slugRouteImport } from './routes/store/$merchant_slug'
 import { Route as TOrderIdRouteImport } from './routes/t.$orderId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -119,6 +121,16 @@ const MerchantMarketingRoute = MerchantMarketingRouteImport.update({
   path: '/marketing',
   getParentRoute: () => MerchantRoute,
 } as any)
+const StoreIndexRoute = StoreIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => StoreRoute,
+} as any)
+const StoreMerchant_slugRoute = StoreMerchant_slugRouteImport.update({
+  id: '/$merchant_slug',
+  path: '/$merchant_slug',
+  getParentRoute: () => StoreRoute,
+} as any)
 const TOrderIdRoute = TOrderIdRouteImport.update({
   id: '/t/$orderId',
   path: '/t/$orderId',
@@ -137,14 +149,16 @@ export interface FileRoutesByFullPath {
   '/order': typeof OrderRoute
   '/profile-menu': typeof ProfileMenuRoute
   '/register': typeof RegisterRoute
-  '/store': typeof StoreRoute
+  '/store': typeof StoreRouteWithChildren
   '/track': typeof TrackRoute
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
+  '/store/$merchant_slug': typeof StoreMerchant_slugRoute
   '/t/$orderId': typeof TOrderIdRoute
+  '/store/': typeof StoreIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -158,14 +172,15 @@ export interface FileRoutesByTo {
   '/order': typeof OrderRoute
   '/profile-menu': typeof ProfileMenuRoute
   '/register': typeof RegisterRoute
-  '/store': typeof StoreRoute
   '/track': typeof TrackRoute
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
+  '/store/$merchant_slug': typeof StoreMerchant_slugRoute
   '/t/$orderId': typeof TOrderIdRoute
+  '/store': typeof StoreIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -180,14 +195,16 @@ export interface FileRoutesById {
   '/order': typeof OrderRoute
   '/profile-menu': typeof ProfileMenuRoute
   '/register': typeof RegisterRoute
-  '/store': typeof StoreRoute
+  '/store': typeof StoreRouteWithChildren
   '/track': typeof TrackRoute
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
+  '/store/$merchant_slug': typeof StoreMerchant_slugRoute
   '/t/$orderId': typeof TOrderIdRoute
+  '/store/': typeof StoreIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -210,7 +227,9 @@ export interface FileRouteTypes {
     | '/admin/taxes'
     | '/merchant/dashboard'
     | '/merchant/marketing'
+    | '/store/$merchant_slug'
     | '/t/$orderId'
+    | '/store/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -224,14 +243,15 @@ export interface FileRouteTypes {
     | '/order'
     | '/profile-menu'
     | '/register'
-    | '/store'
     | '/track'
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
     | '/merchant/dashboard'
     | '/merchant/marketing'
+    | '/store/$merchant_slug'
     | '/t/$orderId'
+    | '/store'
   id:
     | '__root__'
     | '/'
@@ -252,7 +272,9 @@ export interface FileRouteTypes {
     | '/admin/taxes'
     | '/merchant/dashboard'
     | '/merchant/marketing'
+    | '/store/$merchant_slug'
     | '/t/$orderId'
+    | '/store/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -267,7 +289,7 @@ export interface RootRouteChildren {
   OrderRoute: typeof OrderRoute
   ProfileMenuRoute: typeof ProfileMenuRoute
   RegisterRoute: typeof RegisterRoute
-  StoreRoute: typeof StoreRoute
+  StoreRoute: typeof StoreRouteWithChildren
   TrackRoute: typeof TrackRoute
   TripsRoute: typeof TripsRoute
   TOrderIdRoute: typeof TOrderIdRoute
@@ -401,6 +423,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MerchantMarketingRouteImport
       parentRoute: typeof MerchantRoute
     }
+    '/store/': {
+      id: '/store/'
+      path: '/'
+      fullPath: '/store/'
+      preLoaderRoute: typeof StoreIndexRouteImport
+      parentRoute: typeof StoreRoute
+    }
+    '/store/$merchant_slug': {
+      id: '/store/$merchant_slug'
+      path: '/$merchant_slug'
+      fullPath: '/store/$merchant_slug'
+      preLoaderRoute: typeof StoreMerchant_slugRouteImport
+      parentRoute: typeof StoreRoute
+    }
     '/t/$orderId': {
       id: '/t/$orderId'
       path: '/t/$orderId'
@@ -437,6 +473,18 @@ const MerchantRouteWithChildren = MerchantRoute._addFileChildren(
   MerchantRouteChildren,
 )
 
+interface StoreRouteChildren {
+  StoreMerchant_slugRoute: typeof StoreMerchant_slugRoute
+  StoreIndexRoute: typeof StoreIndexRoute
+}
+
+const StoreRouteChildren: StoreRouteChildren = {
+  StoreMerchant_slugRoute: StoreMerchant_slugRoute,
+  StoreIndexRoute: StoreIndexRoute,
+}
+
+const StoreRouteWithChildren = StoreRoute._addFileChildren(StoreRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
@@ -449,7 +497,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrderRoute: OrderRoute,
   ProfileMenuRoute: ProfileMenuRoute,
   RegisterRoute: RegisterRoute,
-  StoreRoute: StoreRoute,
+  StoreRoute: StoreRouteWithChildren,
   TrackRoute: TrackRoute,
   TripsRoute: TripsRoute,
   TOrderIdRoute: TOrderIdRoute,
