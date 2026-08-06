@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import DriverMap from "../components/DriverMap";
+import QRCode from "qrcode";
 
 export const Route = createFileRoute("/track")({
   component: TrackPage,
@@ -36,8 +37,7 @@ const STATUS_STAGES = [
   },
   {
     key: "CLAIMED",
-    match: (status: string) =>
-      status === "EN_ROUTE" || status === "CLAIMED",
+    match: (status: string) => status === "EN_ROUTE" || status === "CLAIMED",
     label: "🚗 Courier On The Way",
   },
   {
@@ -67,7 +67,30 @@ function TrackPage() {
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingError, setRatingError] = useState("");
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (trip?.status !== "EN_ROUTE" && trip?.status !== "IN_TRANSIT") {
+      setQrToken(null);
+      setQrDataUrl("");
+      return;
+    }
+    fetch(`/api/v1/orders/${orderId}/verification-token`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.verification_token) setQrToken(data.verification_token);
+      })
+      .catch(() => {});
+  }, [trip?.status, orderId]);
+
+  useEffect(() => {
+    if (!qrToken) return;
+    QRCode.toDataURL(qrToken, { width: 200, margin: 2 })
+      .then(setQrDataUrl)
+      .catch(() => {});
+  }, [qrToken]);
 
   const submitRating = async () => {
     if (!trip || ratingStars < 1) return;
@@ -94,7 +117,7 @@ function TrackPage() {
     } catch (err) {
       console.error("Rating submission failed:", err);
       setRatingError(
-        err instanceof Error ? err.message : "Failed to submit rating."
+        err instanceof Error ? err.message : "Failed to submit rating.",
       );
     } finally {
       setRatingSubmitting(false);
@@ -187,6 +210,23 @@ function TrackPage() {
             ? `Courier: ${trip.driver_name}`
             : "Waiting for a courier to accept your delivery..."}
         </p>
+
+        {qrDataUrl &&
+          (trip.status === "EN_ROUTE" || trip.status === "IN_TRANSIT") && (
+            <div className="mt-6 p-4 bg-white rounded-xl border border-gray-200 text-center shadow-sm">
+              <p className="text-gray-800 font-bold text-xs mb-2">
+                📲 Present this secure QR code to your courier upon arrival.
+              </p>
+              <img
+                src={qrDataUrl}
+                alt="Delivery verification QR code"
+                className="mx-auto"
+              />
+              <p className="text-xs text-gray-400 mt-2">
+                Expires in 30 minutes
+              </p>
+            </div>
+          )}
 
         <div className="space-y-0">
           {STATUS_STAGES.map((stage, index) => {
