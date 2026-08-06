@@ -19,6 +19,21 @@ const PORT = 3000;
 const HOST = "0.0.0.0";
 const CLIENT_DIR = `${import.meta.dir}/dist/client`;
 
+// ── Group-cart WebSocket ─────────────────────────────────────────────────────
+// The real-time group-cart controller lives in the odofy-backend clone (same
+// GitHub repo) and is loaded lazily on the first WS message, so a broken module
+// can never take down the HTTP server. It creates its own pg pool bound to the
+// live Neon project via dotenv override inside the module.
+let groupCartModule: any = null;
+async function loadGroupCartModule(): Promise<any> {
+  if (!groupCartModule) {
+    groupCartModule = await import(
+      "/home/team/shared/odofy-backend/src/ws/-group-cart.js"
+    );
+  }
+  return groupCartModule;
+}
+
 // ── Backend ──────────────────────────────────────────────────────────────────
 // Free port 3001 and spawn the Express backend from odofy-backend.
 const BACKEND_PORT = 3001;
@@ -61,11 +76,22 @@ const freePort =
 for (let attempt = 1; ; attempt++) {
   await Bun.$`sudo sh -c ${freePort}`.quiet().nothrow();
   try {
-    Bun.serve({
+    const server = Bun.serve({
       port: PORT,
       hostname: HOST,
       async fetch(req) {
         const url = new URL(req.url);
+
+        // Real-time group-cart WebSocket endpoint: /ws?room=XXXXXX. Must be
+        // checked before the /api proxy (a WS handshake is not an API call).
+        if (
+          url.pathname === "/ws" &&
+          req.headers.get("upgrade")?.toLowerCase() === "websocket"
+        ) {
+          const upgraded = server.upgrade(req, { data: { url: req.url } });
+          if (upgraded) return; // handshake taken over; no Response to return
+          return new Response("WebSocket upgrade failed", { status: 400 });
+        }
 
         if (url.pathname.startsWith("/api/")) {
           const backendUrl = `http://localhost:3001${url.pathname}${url.search}`;
@@ -91,6 +117,26 @@ for (let attempt = 1; ; attempt++) {
         return (
           handler as { fetch: (r: Request) => Response | Promise<Response> }
         ).fetch(req);
+      },
+      websocket: {
+        open(_ws: any) {
+          // Room subscription happens on join_group_cart; nothing to do here.
+        },
+        async message(ws: any, message: any) {
+          try {
+            const mod = await loadGroupCartModule();
+            await mod.handleMessage(ws, message);
+          } catch (err) {
+            console.error("[ws] group-cart handler error:", err);
+          }
+        },
+        close(ws: any) {
+          loadGroupCartModule()
+            .then((mod: any) => mod.handleClose(ws))
+            .catch((err: any) =>
+              console.error("[ws] group-cart close cleanup error:", err)
+            );
+        },
       },
     });
     break;
