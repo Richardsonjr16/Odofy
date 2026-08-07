@@ -48,6 +48,16 @@ const MAPBOX_TOKEN = process.env.MAPBOX_ACCESS_TOKEN ?? '';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+/** Convert spreadsheet cell values into types supported by XLSX output cells. */
+export function sanitizeValue(value: unknown): unknown {
+  if (value instanceof Date) return value.toISOString();
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+    return JSON.stringify(value);
+  }
+  if (value === undefined) return '';
+  return value;
+}
+
 function secondsToLabel(s: number): string {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
@@ -179,8 +189,11 @@ export async function scrubLeads(rows: LeadRow[]): Promise<ScrubResult> {
 
   resolved.forEach((r, i) => {
     const duration = durationMap.get(i) ?? Infinity;
+    const sanitizedRow = Object.fromEntries(
+      Object.entries(r.row).map(([key, value]) => [key, sanitizeValue(value)]),
+    ) as LeadRow;
     const enriched: ScrubbedLead = {
-      ...r.row,
+      ...sanitizedRow,
       transit_seconds: duration,
       transit_label: Number.isFinite(duration) ? secondsToLabel(duration) : 'N/A',
     };

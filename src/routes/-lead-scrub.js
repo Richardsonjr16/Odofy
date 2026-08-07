@@ -64,30 +64,40 @@ router.post(
       });
 
       // Import and run the scrubber
-      const { scrubLeads } = require('../utils/leadScrubber');
+      const { scrubLeads, sanitizeValue } = require('../utils/leadScrubber');
       const result = await scrubLeads(leadRows);
 
       // Build output workbook
-      const outRows = result.kept.map((r) => ({
-        Address: r.address || '',
-        Latitude: r.lat ?? '',
-        Longitude: r.lng ?? '',
-        'Transit Time': r.transit_label,
-        'Transit Seconds': r.transit_seconds,
-        Status: 'KEPT',
-        ...r._original,
-      }));
+      const outRows = result.kept.map((r) => {
+        const safeOriginal = Object.fromEntries(
+          Object.entries(r._original || {}).map(([key, value]) => [key, sanitizeValue(value)]),
+        );
+        return {
+          Address: r.address || '',
+          Latitude: r.lat ?? '',
+          Longitude: r.lng ?? '',
+          'Transit Time': r.transit_label,
+          'Transit Seconds': r.transit_seconds,
+          Status: 'KEPT',
+          ...safeOriginal,
+        };
+      });
 
       // Also include dropped rows in a second sheet for diagnostics
-      const droppedRows = result.dropped.map((r) => ({
-        Address: r.address || '',
-        Latitude: r.lat ?? '',
-        Longitude: r.lng ?? '',
-        'Transit Time': r.transit_label,
-        'Transit Seconds': r.transit_seconds,
-        Status: 'DROPPED (>12 min)',
-        ...r._original,
-      }));
+      const droppedRows = result.dropped.map((r) => {
+        const safeOriginal = Object.fromEntries(
+          Object.entries(r._original || {}).map(([key, value]) => [key, sanitizeValue(value)]),
+        );
+        return {
+          Address: r.address || '',
+          Latitude: r.lat ?? '',
+          Longitude: r.lng ?? '',
+          'Transit Time': r.transit_label,
+          'Transit Seconds': r.transit_seconds,
+          Status: 'DROPPED (>12 min)',
+          ...safeOriginal,
+        };
+      });
 
       const outWb = XLSX.utils.book_new();
       const keptSheet = XLSX.utils.json_to_sheet(outRows);
