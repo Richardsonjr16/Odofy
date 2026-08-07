@@ -426,6 +426,7 @@ function DashboardPage() {
   const [currentPostedLimit, setCurrentPostedLimit] = useState<number | null>(
     null,
   );
+  const [currentSpeed, setCurrentSpeed] = useState<number>(0);
 
   // ── Predictive Demand Heatmap state ──
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
@@ -703,6 +704,11 @@ function DashboardPage() {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
+        const mph =
+          position.coords.speed != null
+            ? Math.round(position.coords.speed * 2.23694)
+            : 0;
+        setCurrentSpeed(mph);
       },
       (error) => {
         if (error.PERMISSION_DENIED) {
@@ -2061,18 +2067,20 @@ function DashboardPage() {
               />
 
               {/* ── Demand Heatmap Toggle ── */}
-              <button
-                onClick={() => {
-                  const next = !showHeatmap;
-                  setShowHeatmap(next);
-                  if (heatmapLayerRef.current) {
-                    heatmapLayerRef.current.setMap(next ? mapRef.current : null);
-                  }
-                }}
-                className="absolute bottom-20 right-4 z-50 bg-[#5E0009] text-white text-xs font-bold py-3 px-4 rounded-xl shadow-xl transition-all"
-              >
-                {showHeatmap ? "🔥 Hide Demand Hotzones" : "🔥 Show Demand Hotzones"}
-              </button>
+              {isOdofyNowActive && (
+                <button
+                  onClick={() => {
+                    const next = !showHeatmap;
+                    setShowHeatmap(next);
+                    if (heatmapLayerRef.current) {
+                      heatmapLayerRef.current.setMap(next ? mapRef.current : null);
+                    }
+                  }}
+                  className="absolute top-24 right-4 z-50 bg-[#5E0009] text-white text-xs font-bold py-3 px-4 rounded-xl shadow-xl transition-all"
+                >
+                  {showHeatmap ? "🔥 Hide Demand Hotzones" : "🔥 Show Demand Hotzones"}
+                </button>
+              )}
 
               {locationError && (
                 <div className="absolute bottom-4 left-4 bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium px-2 py-1 rounded-full z-20">
@@ -2080,18 +2088,22 @@ function DashboardPage() {
                 </div>
               )}
 
-              {/* ── Speed Limit Sign ── */}
-              <div className="absolute bottom-4 left-4 bg-white border border-gray-900/90 rounded-lg w-12 h-16 flex flex-col items-center justify-between py-2 shadow-sm z-40 select-none pointer-events-none transition-all">
-                <span className="text-[8px] font-bold text-gray-500 tracking-wider uppercase leading-none">
-                  SPEED
-                </span>
-                <span className="text-[8px] font-bold text-gray-500 tracking-wider uppercase leading-none -mt-0.5">
-                  LIMIT
-                </span>
-                <span className="text-xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
-                  {currentPostedLimit ? currentPostedLimit : "--"}
-                </span>
-              </div>
+              {/* ── Speedometer Card ── */}
+              {isOdofyNowActive && (
+                <div className="absolute bottom-6 left-4 z-50 flex items-center bg-white border border-gray-200 rounded-xl p-2.5 shadow-md">
+                  {/* Speed Limit Sign */}
+                  <div className="border-2 border-black rounded-lg px-2 py-1 bg-white flex items-center justify-center mr-3 h-[40px]">
+                    <span className="text-xl font-black text-black">{currentPostedLimit ?? "--"}</span>
+                  </div>
+                  {/* Live Vehicle Telemetry */}
+                  <div className="flex flex-col items-start justify-center">
+                    <span className={`text-2xl font-black ${currentSpeed > (currentPostedLimit ?? 999) ? 'text-red-600' : 'text-black'}`}>
+                      {currentSpeed}
+                    </span>
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">mph</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ── BOTTOM 60% — SLIDING TOUCH CONSOLE SHEET ── */}
