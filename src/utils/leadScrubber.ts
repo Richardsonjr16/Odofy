@@ -48,6 +48,32 @@ const MAPBOX_TOKEN = process.env.MAPBOX_ACCESS_TOKEN ?? '';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Deep-clone purge + primitive mapping: strips all prototype baggage, class
+ * instances, Buffers, and hidden metadata from row arrays by running them
+ * through JSON round-trip serialization, then forces every cell to a safe
+ * string or number primitive so the xlsx writer never sees a non-serializable
+ * token.
+ */
+export function deepPurgeRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  // Strip hidden class metadata, prototypes, and non-serializable tokens
+  const purged: Record<string, unknown>[] = JSON.parse(JSON.stringify(rows));
+
+  return purged.map((row) => {
+    const flatRow: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(row)) {
+      if (value === null || value === undefined) {
+        flatRow[key] = ''; // prevents undefined tokens from corrupting cells
+      } else if (typeof value === 'object') {
+        flatRow[key] = JSON.stringify(value); // stringifies nested structures safely
+      } else {
+        flatRow[key] = value; // pure primitives pass through
+      }
+    }
+    return flatRow;
+  });
+}
+
 /** Convert spreadsheet cell values into types supported by XLSX output cells. */
 export function sanitizeValue(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString().split('T')[0];
@@ -206,8 +232,8 @@ export async function scrubLeads(rows: LeadRow[]): Promise<ScrubResult> {
   });
 
   return {
-    kept,
-    dropped,
+    kept: deepPurgeRows(kept) as unknown as ScrubbedLead[],
+    dropped: deepPurgeRows(dropped) as unknown as ScrubbedLead[],
     summary: {
       total: rows.length,
       kept: kept.length,

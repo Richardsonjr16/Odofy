@@ -64,7 +64,7 @@ router.post(
       });
 
       // Import and run the scrubber
-      const { scrubLeads, sanitizeValue } = require('../utils/leadScrubber');
+      const { scrubLeads } = require('../utils/leadScrubber');
       const result = await scrubLeads(leadRows);
 
       // Build output workbook — enriched rows already sanitized by scrubLeads()
