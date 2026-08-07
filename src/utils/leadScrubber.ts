@@ -50,7 +50,7 @@ const MAPBOX_TOKEN = process.env.MAPBOX_ACCESS_TOKEN ?? '';
 
 /** Convert spreadsheet cell values into types supported by XLSX output cells. */
 export function sanitizeValue(value: unknown): unknown {
-  if (value instanceof Date) return value.toISOString();
+  if (value instanceof Date) return value.toISOString().split('T')[0];
   if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
     return JSON.stringify(value);
   }
