@@ -58,7 +58,7 @@ interface Analytics {
   platformMargin: number;
 }
 
-type Tab = "drivers" | "deliveries" | "merchants" | "analytics" | "disputes";
+type Tab = "drivers" | "deliveries" | "merchants" | "analytics" | "disputes" | "leads";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -231,6 +231,7 @@ function AdminPage() {
               ["merchants", "Merchant Ledger"],
               ["analytics", "Financial Analytics"],
               ["disputes", "Refund & Disputes"],
+              ["leads", "📊 Lead Scrub"],
             ] as [Tab, string][]
           ).map(([tab, label]) => (
             <button
@@ -324,6 +325,17 @@ function AdminPage() {
             />
           )}
           {activeTab === "disputes" && <DisputesPanel adminKey={apiKey} />}
+          {activeTab === "leads" && (
+            <LeadsTab
+              apiKey={apiKey}
+              setError={setError}
+              setFeedback={setFeedback}
+              onAuthFail={() => {
+                sessionStorage.removeItem(ADMIN_KEY_STORAGE);
+                setApiKey("");
+              }}
+            />
+          )}
         </div>
       </main>
     </div>
@@ -871,6 +883,169 @@ function AnalyticsTab({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function LeadsTab({
+  apiKey,
+  setError,
+  setFeedback,
+  onAuthFail,
+}: {
+  apiKey: string;
+  setError: (e: string | null) => void;
+  setFeedback: (f: { type: "success" | "error"; message: string } | null) => void;
+  onAuthFail: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [scrubbing, setScrubbing] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0] || null;
+    setFile(selected);
+    setError(null);
+    setFeedback(null);
+  };
+
+  const handleScrub = async () => {
+    if (!file || scrubbing) return;
+
+    setScrubbing(true);
+    setError(null);
+    setFeedback(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${API_BASE}/lead-scrub`, {
+        method: "POST",
+        headers: { "x-api-key": apiKey },
+        body: formData,
+      });
+
+      if (res.status === 401) {
+        onAuthFail();
+        setError("Invalid API key. Please log in again.");
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Scrub failed (${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const baseName = file.name.replace(/\.(xlsx|xls|csv)$/i, "");
+      a.download = `${baseName}-scrubbed.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setFeedback({
+        type: "success",
+        message: `Scrub complete — ${baseName}-scrubbed.xlsx downloaded.`,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Scrub failed");
+    } finally {
+      setScrubbing(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-2xl font-bold tracking-tight text-msu-maroon">
+          Lead Scrub
+        </h2>
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm max-w-2xl">
+        <p className="text-sm text-gray-600 mb-6">
+          Upload a spreadsheet of leads ({" "}
+          <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">.xlsx</code>
+          {" "} <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">.xls</code>
+          {" "} <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">.csv</code>
+          ) with an{" "}
+          <span className="font-semibold text-gray-700">address</span>{" "}
+          (or <span className="font-semibold text-gray-700">street</span>{" "}
+          / <span className="font-semibold text-gray-700">street_address</span>) column, and optionally{" "}
+          <span className="font-semibold text-gray-700">lat</span> /{" "}
+          <span className="font-semibold text-gray-700">lng</span> (or{" "}
+          <span className="font-semibold text-gray-700">latitude</span> /{" "}
+          <span className="font-semibold text-gray-700">longitude</span> /{" "}
+          <span className="font-semibold text-gray-700">lon</span>) columns. Leads whose driving
+          time to Park Central Square exceeds 12 minutes are dropped; the download
+          contains <span className="font-semibold text-gray-700">Kept</span>,{" "}
+          <span className="font-semibold text-gray-700">Dropped</span>, and{" "}
+          <span className="font-semibold text-gray-700">Summary</span> sheets.
+        </p>
+
+        <div className="space-y-4">
+          <label className="block">
+            <span className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Lead spreadsheet
+            </span>
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileChange}
+              disabled={scrubbing}
+              className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-msu-maroon file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:cursor-pointer hover:file:bg-msu-maroon/80 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </label>
+
+          {file && (
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5">
+              <span className="text-sm text-gray-700 truncate">
+                📄 {file.name}
+              </span>
+              <span className="text-xs text-gray-400 ml-3 whitespace-nowrap">
+                {(file.size / 1024).toFixed(1)} KB
+              </span>
+            </div>
+          )}
+
+          <button
+            onClick={handleScrub}
+            disabled={!file || scrubbing}
+            className="inline-flex items-center gap-2 rounded-lg bg-msu-maroon px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-msu-maroon/80 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {scrubbing ? (
+              <>
+                <svg
+                  className="animate-spin h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Scrubbing…
+              </>
+            ) : (
+              "Upload & Scrub"
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
