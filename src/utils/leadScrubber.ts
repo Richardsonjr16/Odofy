@@ -62,7 +62,17 @@ export function deepPurgeRows(rows: Record<string, unknown>[]): Record<string, u
   return purged.map((row) => {
     const flatRow: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(row)) {
-      if (value === null || value === undefined) {
+      // Detect address/location columns that may carry Geocodio-style nested
+      // objects; extract the human-readable formatted string instead of
+      // JSON-stringifying the whole nested blob.
+      if (key.toLowerCase().includes('address') || key.toLowerCase().includes('location')) {
+        if (value && typeof value === 'object') {
+          const v = value as Record<string, unknown>;
+          flatRow[key] = v.formatted_address || v.street || v.address || JSON.stringify(value);
+        } else {
+          flatRow[key] = value || '';
+        }
+      } else if (value === null || value === undefined) {
         flatRow[key] = ''; // prevents undefined tokens from corrupting cells
       } else if (typeof value === 'object') {
         flatRow[key] = JSON.stringify(value); // stringifies nested structures safely
