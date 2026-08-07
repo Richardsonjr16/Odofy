@@ -30,6 +30,7 @@ import { Route as MerchantDashboardRouteImport } from './routes/merchant/dashboa
 import { Route as MerchantMarketingRouteImport } from './routes/merchant/marketing'
 import { Route as StoreIndexRouteImport } from './routes/store/index'
 import { Route as StoreMerchant_slugRouteImport } from './routes/store/$merchant_slug'
+import { Route as StoreStMichaelsRouteImport } from './routes/store/st-michaels'
 import { Route as TOrderIdRouteImport } from './routes/t.$orderId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -137,6 +138,11 @@ const StoreMerchant_slugRoute = StoreMerchant_slugRouteImport.update({
   path: '/$merchant_slug',
   getParentRoute: () => StoreRoute,
 } as any)
+const StoreStMichaelsRoute = StoreStMichaelsRouteImport.update({
+  id: '/st-michaels',
+  path: '/st-michaels',
+  getParentRoute: () => StoreRoute,
+} as any)
 const TOrderIdRoute = TOrderIdRouteImport.update({
   id: '/t/$orderId',
   path: '/t/$orderId',
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
   '/store/$merchant_slug': typeof StoreMerchant_slugRoute
+  '/store/st-michaels': typeof StoreStMichaelsRoute
   '/t/$orderId': typeof TOrderIdRoute
   '/store/': typeof StoreIndexRoute
 }
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
   '/store/$merchant_slug': typeof StoreMerchant_slugRoute
+  '/store/st-michaels': typeof StoreStMichaelsRoute
   '/t/$orderId': typeof TOrderIdRoute
   '/store': typeof StoreIndexRoute
 }
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
   '/store/$merchant_slug': typeof StoreMerchant_slugRoute
+  '/store/st-michaels': typeof StoreStMichaelsRoute
   '/t/$orderId': typeof TOrderIdRoute
   '/store/': typeof StoreIndexRoute
 }
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
     | '/merchant/dashboard'
     | '/merchant/marketing'
     | '/store/$merchant_slug'
+    | '/store/st-michaels'
     | '/t/$orderId'
     | '/store/'
   fileRoutesByTo: FileRoutesByTo
@@ -261,6 +271,7 @@ export interface FileRouteTypes {
     | '/merchant/dashboard'
     | '/merchant/marketing'
     | '/store/$merchant_slug'
+    | '/store/st-michaels'
     | '/t/$orderId'
     | '/store'
   id:
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/merchant/dashboard'
     | '/merchant/marketing'
     | '/store/$merchant_slug'
+    | '/store/st-michaels'
     | '/t/$orderId'
     | '/store/'
   fileRoutesById: FileRoutesById
@@ -457,6 +469,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreMerchant_slugRouteImport
       parentRoute: typeof StoreRoute
     }
+    '/store/st-michaels': {
+      id: '/store/st-michaels'
+      path: '/st-michaels'
+      fullPath: '/store/st-michaels'
+      preLoaderRoute: typeof StoreStMichaelsRouteImport
+      parentRoute: typeof StoreRoute
+    }
     '/t/$orderId': {
       id: '/t/$orderId'
       path: '/t/$orderId'
@@ -495,11 +514,13 @@ const MerchantRouteWithChildren = MerchantRoute._addFileChildren(
 
 interface StoreRouteChildren {
   StoreMerchant_slugRoute: typeof StoreMerchant_slugRoute
+  StoreStMichaelsRoute: typeof StoreStMichaelsRoute
   StoreIndexRoute: typeof StoreIndexRoute
 }
 
 const StoreRouteChildren: StoreRouteChildren = {
   StoreMerchant_slugRoute: StoreMerchant_slugRoute,
+  StoreStMichaelsRoute: StoreStMichaelsRoute,
   StoreIndexRoute: StoreIndexRoute,
 }
 
