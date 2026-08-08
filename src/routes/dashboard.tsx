@@ -432,6 +432,14 @@ function DashboardPage() {
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const heatmapLayerRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
+  const speedLimit = currentPostedLimit ?? 55;
+  const toggleHeatmapVisibility = () => {
+    const next = !showHeatmap;
+    setShowHeatmap(next);
+    if (heatmapLayerRef.current) {
+      heatmapLayerRef.current.setMap(next ? mapRef.current : null);
+    }
+  };
 
   // ── Speed limit resolution via OpenStreetMap Overpass API ──
   useEffect(() => {
@@ -521,6 +529,19 @@ function DashboardPage() {
       ],
     });
   }, [heatmapData, mapRef.current, showHeatmap]);
+
+  // ── Map padding: shift attributions out from under speedometer ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    // mapRef.current is a google.maps.Map (no easeTo). Feature-detect so an
+    // easeTo-capable (Mapbox-style) canvas gets bottom-left padding; a Google
+    // Map is a safe no-op (its attribution sits bottom-right, clear of the
+    // speedometer layer).
+    (map as unknown as {
+      easeTo?: (o: { padding: { bottom: number; left: number } }) => void;
+    }).easeTo?.({ padding: { bottom: 80, left: 20 } });
+  }, [mapRef.current]);
 
   // ── NEW STATE: Delivery flow ──
   const [activeDeliveryStep, setActiveDeliveryStep] = useState<
@@ -2066,21 +2087,8 @@ function DashboardPage() {
                 currentLocation={currentLocation}
               />
 
-              {/* ── Demand Heatmap Toggle ── */}
-              {isOdofyNowActive && (
-                <button
-                  onClick={() => {
-                    const next = !showHeatmap;
-                    setShowHeatmap(next);
-                    if (heatmapLayerRef.current) {
-                      heatmapLayerRef.current.setMap(next ? mapRef.current : null);
-                    }
-                  }}
-                  className="absolute top-24 right-4 z-50 bg-[#5E0009] text-white text-xs font-bold py-3 px-4 rounded-xl shadow-xl transition-all"
-                >
-                  {showHeatmap ? "🔥 Hide Demand Hotzones" : "🔥 Show Demand Hotzones"}
-                </button>
-              )}
+              {/* ── Hotzones Pill Badge ── */}
+              <button onClick={() => toggleHeatmapVisibility()} className="absolute top-4 left-4 z-50 flex items-center bg-[#5E0009] border border-red-900 rounded-full px-5 py-2.5 shadow-lg text-white font-black text-sm tracking-wide transition-all active:scale-[0.97]">🔥 Hotzones</button>
 
               {locationError && (
                 <div className="absolute bottom-4 left-4 bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium px-2 py-1 rounded-full z-20">
@@ -2088,38 +2096,31 @@ function DashboardPage() {
                 </div>
               )}
 
-              {/* ── Speedometer Card ── */}
-              {isOdofyNowActive && (
-                <div className="absolute bottom-6 left-4 z-50 flex items-center bg-white border border-gray-200 rounded-xl p-2.5 shadow-md">
-                  {/* Speed Limit Sign */}
-                  <div className="border-2 border-black rounded-lg px-2 py-1 bg-white flex items-center justify-center mr-3 h-[40px]">
-                    <span className="text-xl font-black text-black">{currentPostedLimit ?? "--"}</span>
-                  </div>
-                  {/* Live Vehicle Telemetry */}
-                  <div className="flex flex-col items-start justify-center">
-                    <span className={`text-2xl font-black ${currentSpeed > (currentPostedLimit ?? 999) ? 'text-red-600' : 'text-black'}`}>
-                      {currentSpeed}
-                    </span>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase">mph</span>
-                  </div>
-                </div>
-              )}
+              {/* ── Speedometer — flat layer elements ── */}
+              <div className="absolute bottom-4 left-4 z-50 bg-white border-[3px] border-black rounded-xl w-14 h-16 flex flex-col items-center justify-center shadow-md select-none">
+                <span className="text-[7px] font-black text-gray-800 tracking-tighter leading-none mb-0.5 uppercase">SPEED LIMIT</span>
+                <span className="text-2xl font-extrabold text-black tracking-tight leading-none">{speedLimit || 55}</span>
+              </div>
+              <div className="absolute bottom-4 left-[82px] z-50 flex flex-col items-start justify-center drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)]">
+                <span className={`text-3xl font-black tracking-tight leading-none ${currentSpeed > speedLimit ? 'text-[#D93025]' : 'text-black'}`}>{currentSpeed || 0}</span>
+                <span className="text-xs font-bold text-gray-500 lowercase mt-0.5">mph</span>
+              </div>
             </div>
 
             {/* ── BOTTOM 60% — SLIDING TOUCH CONSOLE SHEET ── */}
             <div className="w-full h-[60vh] bg-white rounded-t-[28px] px-4 pt-5 z-20 overflow-y-auto [webkit-overflow-scrolling:touch] -mt-6 relative flex flex-col">
               {/* Get Offers Until anchor */}
-              {isOdofyNowActive && (
+              {isOdofyNowActive && offerEndTime ? (
                 <div
                   onClick={() => setIsTimeDrawerOpen(true)}
                   className="absolute top-4 right-4 bg-gray-50 border border-gray-100 rounded-full px-3 py-1 flex items-center gap-1.5 shadow-sm hover:bg-gray-100 transition-colors z-30 cursor-pointer"
                 >
                   <span className="text-xs font-semibold text-gray-700">
                     Get offers until{" "}
-                    {offerEndTime ? formatTimeDisplay(offerEndTime) : "--:--"}
+                    {formatTimeDisplay(offerEndTime)}
                   </span>
                 </div>
-              )}
+              ) : null}
 
               {/* Drag handle — sticky */}
               <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-4 block sticky top-0 bg-white pb-2 z-30" />
@@ -2196,6 +2197,9 @@ function DashboardPage() {
                           );
                           const strokeDash = (targetedTimer / 60) * 62.83;
 
+                          // Gate: never mount the offer card unless the driver is online
+                          // (Odofy Now active) with a committed shift window end time.
+                          if (!isOdofyNowActive || !offerEndTime) return null;
                           return (
                             <div className="w-full bg-[#E8F0FE] rounded-2xl mb-4 overflow-hidden border border-[#D2E3FC] shadow-sm">
                               <div className="w-full bg-[#E8F0FE] px-4 py-2.5 flex items-center justify-between border-b border-[#D2E3FC]">
