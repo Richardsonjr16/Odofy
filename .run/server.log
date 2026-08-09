@@ -1,17 +1,2 @@
 $ bun run start.js
-20 | function getMimeType(filePath) {
-21 |   const ext = extname(filePath).toLowerCase();
-22 |   return mimeTypes[ext] || "application/octet-stream";
-23 | }
-24 | 
-25 | Bun.serve({
-         ^
-error: Failed to start server. Is port 3000 in use?
- syscall: "listen",
-   errno: 0,
-    code: "EADDRINUSE"
-
-      at /home/team/shared/site/start.js:25:5
-
-Bun v1.3.14 (Linux x64)
-error: script "start" exited with code 1
+Odofy site on port 3000 (+ API proxy to 3001, /ws group cart)
