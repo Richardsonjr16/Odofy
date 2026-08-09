@@ -427,6 +427,8 @@ function DashboardPage() {
     null,
   );
   const [currentSpeed, setCurrentSpeed] = useState<number>(0);
+  // ── Bottom sliding panel state (collapsible detail sheet) ──
+  const [isPanelExpanded, setIsPanelExpanded] = useState(false);
 
   // ── Predictive Demand Heatmap state ──
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
@@ -1775,6 +1777,13 @@ function DashboardPage() {
     }
   };
 
+  // ── Bottom sliding panel dynamic content (placeholder — wired up later) ──
+  const renderDynamicPanelContent = () => (
+    <div className="text-sm font-medium text-gray-500">
+      Panel content goes here
+    </div>
+  );
+
   // ── NORMAL DASHBOARD ──
   return (
     <>
@@ -2515,6 +2524,34 @@ function DashboardPage() {
                 </span>
               </div>
             )}
+
+            {/* ── BOTTOM SLIDING PANEL (collapsible detail sheet, slides up from bottom) ── */}
+            <div
+              className={`fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] border-t border-gray-100 transition-transform duration-300 ease-in-out transform ${
+                isPanelExpanded
+                  ? "translate-y-0"
+                  : "translate-y-[calc(100%-80px)]"
+              }`}
+              style={{ height: "75vh" }}
+            >
+              {/* Drag Handle Intercept Strip (Thumb Target) */}
+              <div
+                onClick={() => setIsPanelExpanded(!isPanelExpanded)}
+                className="w-full flex flex-col items-center justify-center pt-3 pb-2 cursor-pointer select-none"
+              >
+                <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-1" />
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                  {isPanelExpanded
+                    ? "Swipe Down to Collapse"
+                    : "Swipe Up to View Details"}
+                </span>
+              </div>
+
+              {/* Active Interactive State Content */}
+              <div className="px-5 pb-6 overflow-y-auto h-[calc(100%-44px)]">
+                {renderDynamicPanelContent()}
+              </div>
+            </div>
           </>
         )}
         {bottomNav}
