@@ -112,7 +112,7 @@ const DriverMap = forwardRef<google.maps.Map | null, DriverMapProps>(
 
       const script = document.createElement("script");
       script.id = "odofy-maps-script";
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly&loading=async&callback=odofyMapsLoaded`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly&loading=async&libraries=visualization&callback=odofyMapsLoaded`;
       script.async = true;
       script.defer = true;
 
