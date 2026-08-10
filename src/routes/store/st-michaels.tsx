@@ -18,11 +18,27 @@ interface Merchant { uuid: string; business_name: string; slug: string }
 const SLUG = 'st-michaels';
 const CATEGORIES = ['Starters', 'Fresh Garden Salads', 'Burgers', 'Cold Subs', 'Hot Subs', 'Wraps', 'Sandwiches'];
 
+const COLD_SUB_TITLES = new Set(['regular italian', 'spicy capicola', 'turkey sub', 'salami sub', 'chicken salad sub', 'italian blt']);
+const HOT_SUB_TITLES = new Set(['cheesesteak', 'meatball sub', 'chicken parm', 'italian dip', 'pizza sub', 'russo', 'turkey russo']);
+
+// Fallback categorizer used when the API product row has no `category` (or an
+// unknown one). Rule order matters — named items are matched exactly first so
+// they don't collide with keyword rules (e.g. "Chicken Salad Sub" vs Wraps).
 function categoryFor(product: Product) {
   if (product.category && CATEGORIES.includes(product.category)) return product.category;
+  const title = product.title.trim().toLowerCase();
   const text = `${product.title} ${product.description}`.toLowerCase();
+  if (COLD_SUB_TITLES.has(title)) return 'Cold Subs';
+  if (HOT_SUB_TITLES.has(title)) return 'Hot Subs';
+  if (/\bwrap\b/.test(title)) return 'Wraps';
+  // Signature burgers (e.g. "The Dante Hall", "King Kong") say "burger" only in the description.
   if (/(burger|cheeseburger)/.test(text)) return 'Burgers';
-  if (/(sandwich|sub|wrap|melt)/.test(text)) return 'Sandwiches';
+  if (/(sandwich|melt|grilled cheese)/.test(title)) return 'Sandwiches';
+  // Named grilled-chicken sandwiches whose titles don't say "sandwich".
+  if (/(montreal|chicken club|guacamole chicken)/.test(title)) return 'Sandwiches';
+  if (title === 'soup and salad') return 'Starters'; // combo item; seeded under Starters
+  if (/(salad|greens)/.test(title)) return 'Fresh Garden Salads';
+  if (/(dip|tenders|crab cake|ravioli|fries|soup)/.test(title)) return 'Starters';
   if (/(tray|catering|platter|serves)/.test(text)) return 'Catering Trays';
   return 'Popular Items';
 }
