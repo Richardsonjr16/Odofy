@@ -63,7 +63,7 @@ router.get('/:slug/products', async (req, res) => {
     const merchant = await findMerchantBySlug(req.params.slug);
     if (!merchant) return res.status(404).json({ error: 'Merchant not found' });
     const productsResult = await pool.query(
-      `SELECT id, title, description, price_cents, image_url, in_stock
+      `SELECT id, title, description, price_cents, image_url, in_stock, category
        FROM merchant_products
        WHERE merchant_id = $1
        ORDER BY created_at DESC`,

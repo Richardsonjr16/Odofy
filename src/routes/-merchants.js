@@ -317,7 +317,7 @@ router.get('/store/:slug/products', async (req, res) => {
     const merchant = await pool.query('SELECT uuid, business_name, slug FROM odofy_merchants WHERE slug = $1', [req.params.slug]);
     if (!merchant.rows.length) return res.status(404).json({ error: 'Store not found' });
     const products = await pool.query(
-      'SELECT id, title, description, price_cents, image_url, in_stock FROM merchant_products WHERE merchant_id = $1 AND in_stock = true ORDER BY created_at DESC',
+      'SELECT id, title, description, price_cents, image_url, in_stock, category FROM merchant_products WHERE merchant_id = $1 AND in_stock = true ORDER BY created_at DESC',
       [merchant.rows[0].uuid]
     );
     return res.json({ merchant: merchant.rows[0], products: products.rows });
