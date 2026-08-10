@@ -1,3 +1,2 @@
 $ bun run start.js
 Odofy site on port 3000 (+ API proxy to 3001, /ws group cart)
-error: script "start" was terminated by signal SIGTERM (Polite quit request)

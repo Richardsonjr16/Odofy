@@ -2,8 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { readFile } from "node:fs/promises";
 import { useEffect, useState } from "react";
-import Navbar from "~/components/Navbar";
-
 const getBusinessName = createServerFn({ method: "GET" }).handler(async () => {
   try {
     const cfg = JSON.parse(await readFile("site.json", "utf8")) as {
@@ -75,7 +73,6 @@ function Home() {
 
   return (
     <div className="min-h-dvh bg-white text-charcoal">
-      <Navbar />
 
       {/* Hero */}
       <section className="px-6 pb-16 pt-12 sm:px-8 sm:pb-24 sm:pt-20 lg:px-12 lg:pb-32 lg:pt-28">
