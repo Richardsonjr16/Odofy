@@ -2,10 +2,11 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 
 interface Product {
-  id: number;
+  id: string;
   merchant_id: string;
   title: string;
   description: string;
+  price_cents: number;
   price: number;
   image_url: string;
   in_stock: boolean;
@@ -15,7 +16,7 @@ interface CartItem { product: Product; qty: number }
 interface Merchant { uuid: string; business_name: string; slug: string }
 
 const SLUG = 'st-michaels';
-const CATEGORIES = ['Popular Items', 'Burgers', 'Sandwiches', 'Catering Trays'];
+const CATEGORIES = ['Starters', 'Fresh Garden Salads', 'Burgers', 'Cold Subs', 'Hot Subs', 'Wraps', 'Sandwiches'];
 
 function categoryFor(product: Product) {
   if (product.category && CATEGORIES.includes(product.category)) return product.category;
@@ -56,7 +57,7 @@ function StorePage() {
   useEffect(() => {
     fetch(`/api/v1/odofy/merchants/store/${SLUG}/products`)
       .then((response) => response.json())
-      .then((data) => { if (data.error) setError(data.error); else { setMerchant(data.merchant); setProducts(data.products || []); } })
+      .then((data) => { if (data.error) setError(data.error); else { setMerchant(data.merchant); setProducts((data.products || []).map((p) => ({ ...p, price: p.price_cents / 100 }))); } })
       .catch(() => setError('Failed to load store'))
       .finally(() => setLoading(false));
   }, []);
