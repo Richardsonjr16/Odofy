@@ -21,6 +21,109 @@ const CATEGORIES = ['Starters', 'Fresh Garden Salads', 'Burgers', 'Cold Subs', '
 const COLD_SUB_TITLES = new Set(['regular italian', 'spicy capicola', 'turkey sub', 'salami sub', 'chicken salad sub', 'italian blt']);
 const HOT_SUB_TITLES = new Set(['cheesesteak', 'meatball sub', 'chicken parm', 'italian dip', 'pizza sub', 'russo', 'turkey russo']);
 
+// ---------------------------------------------------------------------------
+// Product photos (Unsplash).
+//
+// Every St. Michael's product has `image_url = NULL` in the DB, so the old
+// fallback (`/branding/brand_mark.png`) showed the Odofy logo for all 46 items.
+// `productImageUrl()` maps each product to a real Unsplash food photo instead.
+//
+// NOTE: `https://source.unsplash.com/...` (the old "source" service) was
+// retired by Unsplash and returns HTTP 503, so we hotlink the official CDN
+// (`images.unsplash.com/photo-<id>`) with fixed crop params. All photo IDs
+// below were curl-verified to return HTTP 200 image/jpeg.
+// ---------------------------------------------------------------------------
+
+const UNSPLASH_IMG_PARAMS = '?w=200&h=200&fit=crop&crop=entropy&q=80';
+
+// Exact product-title -> Unsplash photo ID. Each of the 46 seeded menu items
+// gets its own photo; IDs are unique across the whole map.
+const PRODUCT_PHOTO_IDS: Record<string, string> = {
+  // Burgers
+  '500 Club': '1568901346375-23c9450c58cd',
+  'King Kong': '1571091718767-18b5b1457add',
+  'Mississippi Ave': '1550547660-d9450f859349',
+  'NY Yankee': '1551782450-a2132b4ba21d',
+  'Schoolyard': '1561758033-d89a9ad46330',
+  'Steel Pier': '1553979459-d2229ba7433b',
+  'The Dante Hall': '1607013251379-e6eecfffe234',
+  // Cold Subs
+  'Regular Italian': '1528735602780-2552fd46c7af',
+  'Spicy Capicola': '1553909489-cd47e0907980',
+  'Turkey Sub': '1550507992-eb63ffee0847',
+  'Salami Sub': '1567234669003-dce7a7a88821',
+  'Italian BLT': '1481070414801-51fd732d7184',
+  'Chicken Salad Sub': '1509440159596-0249088772ff',
+  // Fresh Garden Salads
+  'Blackened Salmon Salad': '1467003909585-2f8a72700288',
+  'Crab Cake Salad': '1490645935967-10de6ba17061',
+  'Crispy Chicken Salad': '1540189549336-e6e99c3679fe',
+  'Grilled Chicken Salad': '1540420773420-3366772f4999',
+  'Large House Salad': '1512621776951-a57141f2eefd',
+  'Small Side Salad': '1505253716362-afaea1d3d1af',
+  'Tomato & Mozzarella Salad': '1546069901-ba9599a7e63c',
+  // Hot Subs
+  'Cheesesteak': '1600891964092-4316c288032e',
+  'Chicken Parm': '1608039755401-742074f0548d',
+  'Italian Dip': '1547592166-23ac45744acd',
+  'Meatball Sub': '1625943553852-781c6dd46faa',
+  'Pizza Sub': '1565299624946-b28f40a0ae38',
+  'Russo': '1473093295043-cdd812d0e601',
+  'Turkey Russo': '1621996346565-e3dbc646d9a9',
+  // Sandwiches
+  'Chicken Club': '1414235077428-338989a2e8c0',
+  'Crab Cake Sandwich': '1482049016688-2d3e1b311543',
+  'Guacamole Chicken': '1505576399279-565b52d4ac71',
+  'Montreal Grilled Chicken': '1550317138-10000687a72b',
+  'Spicy Jalapeño Grilled Cheese': '1529042410759-befb1204b468',
+  // Starters
+  'Basket of Fries': '1573080496219-bb080dd4f877',
+  'Chicken Tenders': '1562967914-608f82629710',
+  'Crab Cakes': '1555939594-58d7cb561ad1',
+  'Soup and Salad': '1504674900247-0877df9cc836',
+  'Soup of the Day': '1476718406336-bb5a9690ee2a',
+  'Spicy Cheese Ravioli': '1569718212165-3a8278d5f624',
+  'Spinach & Artichoke Dip': '1617196034796-73dfa7b1fd56',
+  // Wraps
+  'Black Bean Wrap': '1626700051175-6818013e1d4f',
+  'Caribbean Jerk Wrap': '1512058564366-18510be2db19',
+  'Chicken Caesar Wrap': '1562059390-a761a084768e',
+  'Chicken Salad Wrap': '1601050690597-df0568f70950',
+  'Grilled Turkey Provolone Wrap': '1519708227418-c8fd9a32b7a2',
+  'Turkey Club Wrap': '1476224203421-9ac39bcb3327',
+  'Veggie Wrap': '1512852939750-1305098529bf',
+};
+
+// Category fallback pools for menu items not in the exact-title map above
+// (keeps new/unknown products on a relevant photo instead of a placeholder).
+const CATEGORY_PHOTO_POOLS: Record<string, string[]> = {
+  'Burgers': ['1568901346375-23c9450c58cd', '1571091718767-18b5b1457add', '1550547660-d9450f859349', '1551782450-a2132b4ba21d', '1561758033-d89a9ad46330'],
+  'Cold Subs': ['1528735602780-2552fd46c7af', '1550507992-eb63ffee0847', '1553909489-cd47e0907980', '1481070414801-51fd732d7184'],
+  'Fresh Garden Salads': ['1512621776951-a57141f2eefd', '1540420773420-3366772f4999', '1546069901-ba9599a7e63c', '1490645935967-10de6ba17061'],
+  'Hot Subs': ['1625943553852-781c6dd46faa', '1473093295043-cdd812d0e601', '1600891964092-4316c288032e', '1565299624946-b28f40a0ae38'],
+  'Sandwiches': ['1550507992-eb63ffee0847', '1567234669003-dce7a7a88821', '1481070414801-51fd732d7184'],
+  'Starters': ['1573080496219-bb080dd4f877', '1562967914-608f82629710', '1547592166-23ac45744acd', '1555939594-58d7cb561ad1'],
+  'Wraps': ['1626700051175-6818013e1d4f', '1562059390-a761a084768e', '1512058564366-18510be2db19'],
+};
+const DEFAULT_PHOTO_POOL = ['1540189549336-e6e99c3679fe', '1504674900247-0877df9cc836', '1482049016688-2d3e1b311543', '1414235077428-338989a2e8c0'];
+
+// Deterministic pool pick so a product always renders the same photo.
+function photoIdFor(product: Product): string {
+  const title = product.title.trim();
+  const exact = PRODUCT_PHOTO_IDS[title];
+  if (exact) return exact;
+  const pool = CATEGORY_PHOTO_POOLS[categoryFor(product)] ?? DEFAULT_PHOTO_POOL;
+  let hash = 0;
+  const key = `${title} ${product.category || ''}`;
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return pool[hash % pool.length];
+}
+
+function productImageUrl(product: Product): string {
+  if (product.image_url) return product.image_url;
+  return `https://images.unsplash.com/photo-${photoIdFor(product)}${UNSPLASH_IMG_PARAMS}`;
+}
+
 // Fallback categorizer used when the API product row has no `category` (or an
 // unknown one). Rule order matters — named items are matched exactly first so
 // they don't collide with keyword rules (e.g. "Chicken Salad Sub" vs Wraps).
@@ -127,7 +230,7 @@ function StorePage() {
         </nav></aside>
         <main className="lg:col-span-7 min-w-0">
           {grouped.map((group) => <section key={group.category} className="mb-8"><h2 className="text-xl font-black text-gray-800 mb-4">{group.category}</h2>{group.products.map((product) => <div key={product.id} className={`flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl mb-4 shadow-sm ${!product.in_stock ? 'opacity-50' : ''}`}>
-            <div className="flex items-center min-w-0"><img src={product.image_url || '/branding/brand_mark.png'} alt="" className="w-20 h-20 object-cover rounded-lg mr-4 shrink-0" /><div className="min-w-0"><h3 className="text-sm font-bold text-gray-800">{product.title}</h3><p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{product.description}</p></div></div>
+            <div className="flex items-center min-w-0"><img src={productImageUrl(product)} alt={product.title} className="w-20 h-20 object-cover rounded-lg mr-4 shrink-0" /><div className="min-w-0"><h3 className="text-sm font-bold text-gray-800">{product.title}</h3><p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{product.description}</p></div></div>
             <div className="flex items-center gap-4 ml-4 shrink-0"><span className="text-sm font-bold text-gray-900">${product.price.toFixed(2)}</span><button disabled={!product.in_stock} onClick={() => addToCart(product)} className="bg-[#5E0009] hover:bg-[#4a0007] text-white font-extrabold text-xs py-2 px-5 rounded-xl shadow-sm transition-all active:scale-[0.97] disabled:bg-gray-400 disabled:cursor-not-allowed">{product.in_stock ? '+ Add' : 'Sold Out'}</button></div>
           </div>)}</section>)}
           {!grouped.length && <p className="text-gray-500">No products in this category.</p>}
