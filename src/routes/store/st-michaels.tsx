@@ -87,7 +87,16 @@ function StorePage() {
   }, [products, selectedCategory]);
   const cartSubtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.qty), 0);
   const isMinimumMet = cartSubtotal >= 15.00;
-  const changeQty = (product: Product, amount: number) => setCartItems((current) => current.flatMap((item) => item.product.id === product.id ? (item.qty + amount > 0 ? [{ ...item, qty: item.qty + amount }] : []) : [item]));
+  const changeQty = (product: Product, amount: number) => setCartItems((current) => {
+    const existing = current.find((item) => item.product.id === product.id);
+    // Item not in the cart yet — append it (the old flatMap-only version could
+    // never add a new item, so "+ Add" on an empty cart was a silent no-op).
+    if (!existing) return amount > 0 ? [...current, { product, qty: amount }] : current;
+    const qty = existing.qty + amount;
+    return qty > 0
+      ? current.map((item) => (item.product.id === product.id ? { ...item, qty } : item))
+      : current.filter((item) => item.product.id !== product.id);
+  });
   const addToCart = (product: Product) => changeQty(product, 1);
   const handleCheckout = async () => {
     if (!customerName || !deliveryAddress || (deliveryMode === 'scheduled' && !scheduledSlot)) return;
