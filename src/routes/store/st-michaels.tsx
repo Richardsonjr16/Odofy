@@ -94,7 +94,7 @@ const PRODUCT_PHOTO_IDS: Record<string, string> = {
   'Turkey Club Wrap': '1476224203421-9ac39bcb3327',
   'Veggie Wrap': '1512852939750-1305098529bf',
   // Desserts
-  'Banana Cake': '1556909114-f6e7ad7d3136',
+  'Banana Cake': '1706145779556-9437d052dd56',
   'Strawberry Cake': '1562007908-17c67e878c88',
   'Lemon Blueberry Cake': '1586788680434-30d324b2d46f',
   'Orange Creamsicle Cake': '1608198093002-ad4e005484ec',
@@ -103,7 +103,7 @@ const PRODUCT_PHOTO_IDS: Record<string, string> = {
   'Double Chocolate Cake': '1578985545062-69928b1d9587',
   'German Chocolate Cake': '1565958011703-44f9829ba187',
   'Peppermint Double Chocolate Ganache Cake': '1551024506-0bccd828d307',
-  "Andy's Mint Double Chocolate Ganache Cake": '1542626991-cbc4e32524cc',
+  "Andy's Mint Double Chocolate Ganache Cake": '1621423828877-f6afc6fafa90',
   'Triple Chocolate Mousse Cake with Ganache': '1464349095431-e9a21285b5f3',
   'Vanilla Cake': '1588195538326-c5b1e9f80a1b',
   'Yellow Cake': '1519915028121-7d3463d20b13',
