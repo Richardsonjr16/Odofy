@@ -1777,13 +1777,6 @@ function DashboardPage() {
     }
   };
 
-  // ── Bottom sliding panel dynamic content (placeholder — wired up later) ──
-  const renderDynamicPanelContent = () => (
-    <div className="text-sm font-medium text-gray-500">
-      Panel content goes here
-    </div>
-  );
-
   // ── NORMAL DASHBOARD ──
   return (
     <>
@@ -2359,110 +2352,7 @@ function DashboardPage() {
                         </>
                       )}
 
-                      {/* STATE ACTIVE: Trip cards or empty mailbox */}
-                      {!loading && isOdofyNowActive && (
-                        <>
-                          {visibleTrips.length === 0 && !targetedTrip && (
-                            <div className="flex flex-col items-center justify-center py-8 text-center">
-                              <span className="text-5xl mb-4">📭</span>
-                              <p className="text-lg font-semibold text-gray-700">
-                                No trip offers right now
-                              </p>
-                              <p className="text-sm font-medium text-gray-400 mt-1">
-                                New offers will appear here when available
-                              </p>
-                            </div>
-                          )}
-                          {visibleTrips.length > 0 && (
-                            <div data-trip-deck>
-                              {visibleTrips.map((trip, idx) => {
-                                const basePayout =
-                                  parseFloat(trip.driver_payout) || 8.5;
-                                const tip =
-                                  parseFloat(trip.driver_tip_allocation) || 0;
-                                const total = basePayout + tip;
-                                const pickup =
-                                  SPRINGFIELD_PICKUPS[
-                                    idx % SPRINGFIELD_PICKUPS.length
-                                  ];
-                                const dropoff =
-                                  SPRINGFIELD_DROPOFFS[
-                                    idx % SPRINGFIELD_DROPOFFS.length
-                                  ];
-                                const isApproving = approvingIds.has(trip.uuid);
-
-                                return (
-                                  <div
-                                    key={trip.uuid}
-                                    className="w-full bg-white border border-gray-200/80 rounded-2xl p-4 mb-4 shadow-sm relative hover:border-gray-300 transition-all flex flex-col gap-2.5 snap-start"
-                                  >
-                                    <div className="flex items-baseline justify-between">
-                                      <div className="flex items-baseline">
-                                        <span className="text-3xl font-bold text-gray-900">
-                                          ${total.toFixed(2)}
-                                        </span>
-                                        <span className="text-xs font-normal text-gray-400 ml-1 pb-1 self-end">
-                                          estimate
-                                        </span>
-                                      </div>
-                                      <span className="text-gray-400 text-2xl leading-none">
-                                        ›
-                                      </span>
-                                    </div>
-                                    <p className="text-sm font-semibold text-gray-600 tracking-tight">
-                                      {trip.total_stops || 2} stops • 4.3 miles
-                                      • 25 mins
-                                    </p>
-                                    {trip.cross_stack_bonus &&
-                                    trip.cross_stack_bonus > 0 ? (
-                                      <span className="bg-[#E6F4EA] text-[#137333] px-2.5 py-0.5 rounded-md text-xs font-bold w-fit uppercase tracking-wider">
-                                        Multi-trip incentive: +$
-                                        {trip.cross_stack_bonus.toFixed(2)}{" "}
-                                        cross-stack bonus
-                                      </span>
-                                    ) : null}
-                                    <p className="text-sm font-semibold text-gray-800 mt-1">
-                                      🏪 ASAP • Boutique Retail Pickup • Odofy
-                                      Axis
-                                    </p>
-                                    <p className="text-xs font-medium text-gray-500 mt-1 whitespace-pre-line leading-relaxed">
-                                      📍 Pickup: {pickup}
-                                      {"\n"}🎯 Dropoff: {dropoff}
-                                    </p>
-                                    <div className="flex items-center gap-3 mt-2 w-full">
-                                      <button
-                                        onClick={() => handleReject(trip.uuid)}
-                                        className="flex-1 py-3 bg-[#EEF0F2] text-[#1A1C1E] font-bold text-sm rounded-full text-center shadow-sm hover:bg-[#E1E3E5] transition-colors"
-                                      >
-                                        REJECT
-                                      </button>
-                                      <button
-                                        onClick={() => handleApprove(trip.uuid)}
-                                        disabled={isApproving}
-                                        className="flex-1 py-3 text-white font-bold text-sm rounded-full text-center shadow-md transition-colors disabled:opacity-60"
-                                        style={{
-                                          backgroundColor:
-                                            currentMarketColors.primary,
-                                          boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}`,
-                                        }}
-                                      >
-                                        {isApproving ? (
-                                          <span className="inline-flex items-center gap-1.5">
-                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                            Claiming…
-                                          </span>
-                                        ) : (
-                                          "ACCEPT"
-                                        )}
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </>
-                      )}
+                      {/* STATE ACTIVE: trip offers moved into the bottom sliding panel */}
                     </>
                   )}
                 </>
@@ -2525,7 +2415,7 @@ function DashboardPage() {
               </div>
             )}
 
-            {/* ── BOTTOM SLIDING PANEL (collapsible detail sheet, slides up from bottom) ── */}
+            {/* ── TRIP OFFERS SLIDING PANEL (collapsible sheet, slides up from bottom) ── */}
             <div
               className={`fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] border-t border-gray-100 transition-transform duration-300 ease-in-out transform ${
                 isPanelExpanded
@@ -2534,22 +2424,125 @@ function DashboardPage() {
               }`}
               style={{ height: "75vh" }}
             >
-              {/* Drag Handle Intercept Strip (Thumb Target) */}
+              {/* Drag Handle Strip (Thumb Target) — 80px visible when collapsed */}
               <div
                 onClick={() => setIsPanelExpanded(!isPanelExpanded)}
-                className="w-full flex flex-col items-center justify-center pt-3 pb-2 cursor-pointer select-none"
+                className="w-full h-20 flex flex-col items-center justify-center cursor-pointer select-none"
               >
                 <div className="w-12 h-1.5 bg-gray-300 rounded-full mb-1" />
                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                   {isPanelExpanded
                     ? "Swipe Down to Collapse"
-                    : "Swipe Up to View Details"}
+                    : "Trip Offers"}
                 </span>
               </div>
 
-              {/* Active Interactive State Content */}
-              <div className="px-5 pb-6 overflow-y-auto h-[calc(100%-44px)]">
-                {renderDynamicPanelContent()}
+              {/* Trip Offers Content */}
+              <div className="px-5 pb-6 overflow-y-auto h-[calc(100%-80px)]">
+                {/* STATE ACTIVE: Trip cards or empty mailbox */}
+                {!loading && isOdofyNowActive && (
+                  <>
+                    {visibleTrips.length === 0 && !targetedTrip && (
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <span className="text-5xl mb-4">📭</span>
+                        <p className="text-lg font-semibold text-gray-700">
+                          No trip offers right now
+                        </p>
+                        <p className="text-sm font-medium text-gray-400 mt-1">
+                          New offers will appear here when available
+                        </p>
+                      </div>
+                    )}
+                    {visibleTrips.length > 0 && (
+                      <div data-trip-deck>
+                        {visibleTrips.map((trip, idx) => {
+                          const basePayout =
+                            parseFloat(trip.driver_payout) || 8.5;
+                          const tip =
+                            parseFloat(trip.driver_tip_allocation) || 0;
+                          const total = basePayout + tip;
+                          const pickup =
+                            SPRINGFIELD_PICKUPS[
+                              idx % SPRINGFIELD_PICKUPS.length
+                            ];
+                          const dropoff =
+                            SPRINGFIELD_DROPOFFS[
+                              idx % SPRINGFIELD_DROPOFFS.length
+                            ];
+                          const isApproving = approvingIds.has(trip.uuid);
+
+                          return (
+                            <div
+                              key={trip.uuid}
+                              className="w-full bg-white border border-gray-200/80 rounded-2xl p-4 mb-4 shadow-sm relative hover:border-gray-300 transition-all flex flex-col gap-2.5 snap-start"
+                            >
+                              <div className="flex items-baseline justify-between">
+                                <div className="flex items-baseline">
+                                  <span className="text-3xl font-bold text-gray-900">
+                                    ${total.toFixed(2)}
+                                  </span>
+                                  <span className="text-xs font-normal text-gray-400 ml-1 pb-1 self-end">
+                                    estimate
+                                  </span>
+                                </div>
+                                <span className="text-gray-400 text-2xl leading-none">
+                                  ›
+                                </span>
+                              </div>
+                              <p className="text-sm font-semibold text-gray-600 tracking-tight">
+                                {trip.total_stops || 2} stops • 4.3 miles
+                                • 25 mins
+                              </p>
+                              {trip.cross_stack_bonus &&
+                              trip.cross_stack_bonus > 0 ? (
+                                <span className="bg-[#E6F4EA] text-[#137333] px-2.5 py-0.5 rounded-md text-xs font-bold w-fit uppercase tracking-wider">
+                                  Multi-trip incentive: +$
+                                  {trip.cross_stack_bonus.toFixed(2)}{" "}
+                                  cross-stack bonus
+                                </span>
+                              ) : null}
+                              <p className="text-sm font-semibold text-gray-800 mt-1">
+                                🏪 ASAP • Boutique Retail Pickup • Odofy
+                                Axis
+                              </p>
+                              <p className="text-xs font-medium text-gray-500 mt-1 whitespace-pre-line leading-relaxed">
+                                📍 Pickup: {pickup}
+                                {"\n"}🎯 Dropoff: {dropoff}
+                              </p>
+                              <div className="flex items-center gap-3 mt-2 w-full">
+                                <button
+                                  onClick={() => handleReject(trip.uuid)}
+                                  className="flex-1 py-3 bg-[#EEF0F2] text-[#1A1C1E] font-bold text-sm rounded-full text-center shadow-sm hover:bg-[#E1E3E5] transition-colors"
+                                >
+                                  REJECT
+                                </button>
+                                <button
+                                  onClick={() => handleApprove(trip.uuid)}
+                                  disabled={isApproving}
+                                  className="flex-1 py-3 text-white font-bold text-sm rounded-full text-center shadow-md transition-colors disabled:opacity-60"
+                                  style={{
+                                    backgroundColor:
+                                      currentMarketColors.primary,
+                                    boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}`,
+                                  }}
+                                >
+                                  {isApproving ? (
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                      Claiming…
+                                    </span>
+                                  ) : (
+                                    "ACCEPT"
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </>
