@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, Outlet, HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import appCss from "~/styles/app.css?url";
@@ -40,18 +40,27 @@ function RootDocument({ children }: { children: ReactNode }) {
 
 function RootLayout() {
   const [isResourcesOpen, setIsResourcesOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+  const loginRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (loginRef.current && !loginRef.current.contains(e.target as Node)) {
+        setLoginOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 antialiased font-sans">
       {/* Premium Global Navigation Header */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 backdrop-blur-md bg-white/90">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between relative">
-          {/* Brand Logo Grid */}
-          <Link to="/" className="flex items-center gap-2 select-none group">
-            <span className="text-xl group-hover:scale-110 transition-transform duration-200">🛵</span>
-            <span className="font-black text-xl tracking-tight text-[#800020]">
-              Odofy<span className="text-gray-400 font-normal">Logistics</span>
-            </span>
+          {/* Brand Logo */}
+          <Link to="/" className="flex items-center">
+            <img src="/Odofy_Embroidery.png" alt="Odofy" className="h-[72px] w-auto" />
           </Link>
 
           {/* Center Navigation Links */}
@@ -89,14 +98,35 @@ function RootLayout() {
             </div>
           </div>
 
-          {/* Right Core Action Button Container */}
-          <div>
-            <Link 
-              to="/compare/flat-fee-vs-commission" 
-              className="px-4 py-2 bg-[#800020] text-white font-bold text-xs rounded-xl hover:bg-[#5a0016] transition-all shadow-md shadow-red-950/10 block"
+          {/* Right: Login Dropdown */}
+          <div className="relative" ref={loginRef}>
+            <button
+              onClick={() => setLoginOpen(!loginOpen)}
+              className="rounded-lg bg-[#800020] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a0016]"
             >
-              Calculate Savings
-            </Link>
+              Login
+            </button>
+            {loginOpen && (
+              <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white shadow-lg z-50">
+                <div className="border-b border-gray-100 px-4 py-3 text-sm font-semibold text-gray-800">
+                  Sign In to Your Dashboard
+                </div>
+                <Link
+                  to="/dashboard"
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  onClick={() => setLoginOpen(false)}
+                >
+                  🚗 I am a Driver
+                </Link>
+                <Link
+                  to="/merchant-login"
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-b-xl transition-colors"
+                  onClick={() => setLoginOpen(false)}
+                >
+                  🏪 I am a Merchant
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </nav>
@@ -111,10 +141,9 @@ function RootLayout() {
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           {/* Column 1: Brand Capsule */}
           <div className="col-span-2 md:col-span-1 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🛵</span>
-              <span className="font-black text-lg tracking-tight text-[#800020]">Odofy<span className="text-gray-400 font-normal">Logistics</span></span>
-            </div>
+            <Link to="/" className="inline-block">
+              <img src="/Odofy_Embroidery.png" alt="Odofy" className="h-[48px] w-auto" />
+            </Link>
             <p className="text-[11px] text-gray-500 font-medium leading-relaxed max-w-xs">
               Own your delivery routes. Retain your customer records. Protect your local Springfield business profit margins upfront.
             </p>
