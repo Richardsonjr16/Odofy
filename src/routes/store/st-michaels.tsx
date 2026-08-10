@@ -16,10 +16,11 @@ interface CartItem { product: Product; qty: number }
 interface Merchant { uuid: string; business_name: string; slug: string }
 
 const SLUG = 'st-michaels';
-const CATEGORIES = ['Starters', 'Fresh Garden Salads', 'Burgers', 'Cold Subs', 'Hot Subs', 'Wraps', 'Sandwiches'];
+const CATEGORIES = ['Starters', 'Fresh Garden Salads', 'Burgers', 'Cold Subs', 'Hot Subs', 'Wraps', 'Sandwiches', 'Desserts'];
 
 const COLD_SUB_TITLES = new Set(['regular italian', 'spicy capicola', 'turkey sub', 'salami sub', 'chicken salad sub', 'italian blt']);
 const HOT_SUB_TITLES = new Set(['cheesesteak', 'meatball sub', 'chicken parm', 'italian dip', 'pizza sub', 'russo', 'turkey russo']);
+const DESSERT_TITLES = new Set(['banana cake', 'strawberry cake', 'lemon blueberry cake', 'orange creamsicle cake', 'carrot cake', 'ghirardelli white chocolate cake', 'double chocolate cake', 'german chocolate cake', 'peppermint double chocolate ganache cake', "andy's mint double chocolate ganache cake", 'triple chocolate mousse cake with ganache', 'vanilla cake', 'yellow cake']);
 
 // ---------------------------------------------------------------------------
 // Product photos (Unsplash).
@@ -92,6 +93,20 @@ const PRODUCT_PHOTO_IDS: Record<string, string> = {
   'Grilled Turkey Provolone Wrap': '1519708227418-c8fd9a32b7a2',
   'Turkey Club Wrap': '1476224203421-9ac39bcb3327',
   'Veggie Wrap': '1512852939750-1305098529bf',
+  // Desserts
+  'Banana Cake': '1556909114-f6e7ad7d3136',
+  'Strawberry Cake': '1562007908-17c67e878c88',
+  'Lemon Blueberry Cake': '1586788680434-30d324b2d46f',
+  'Orange Creamsicle Cake': '1608198093002-ad4e005484ec',
+  'Carrot Cake': '1614707267537-b85aaf00c4b7',
+  'Ghirardelli White Chocolate Cake': '1621303837174-89787a7d4729',
+  'Double Chocolate Cake': '1578985545062-69928b1d9587',
+  'German Chocolate Cake': '1565958011703-44f9829ba187',
+  'Peppermint Double Chocolate Ganache Cake': '1551024506-0bccd828d307',
+  "Andy's Mint Double Chocolate Ganache Cake": '1542626991-cbc4e32524cc',
+  'Triple Chocolate Mousse Cake with Ganache': '1464349095431-e9a21285b5f3',
+  'Vanilla Cake': '1588195538326-c5b1e9f80a1b',
+  'Yellow Cake': '1519915028121-7d3463d20b13',
 };
 
 // Category fallback pools for menu items not in the exact-title map above
@@ -102,6 +117,7 @@ const CATEGORY_PHOTO_POOLS: Record<string, string[]> = {
   'Fresh Garden Salads': ['1512621776951-a57141f2eefd', '1540420773420-3366772f4999', '1546069901-ba9599a7e63c', '1490645935967-10de6ba17061'],
   'Hot Subs': ['1625943553852-781c6dd46faa', '1473093295043-cdd812d0e601', '1600891964092-4316c288032e', '1565299624946-b28f40a0ae38'],
   'Sandwiches': ['1550507992-eb63ffee0847', '1567234669003-dce7a7a88821', '1481070414801-51fd732d7184'],
+  'Desserts': ['1606313564200-e75d5e30476c', '1499636136210-6f4ee915583e', '1508737027454-e6454ef45afd', '1533134242443-d4fd215305ad'],
   'Starters': ['1573080496219-bb080dd4f877', '1562967914-608f82629710', '1547592166-23ac45744acd', '1555939594-58d7cb561ad1'],
   'Wraps': ['1626700051175-6818013e1d4f', '1562059390-a761a084768e', '1512058564366-18510be2db19'],
 };
@@ -133,6 +149,7 @@ function categoryFor(product: Product) {
   const text = `${product.title} ${product.description}`.toLowerCase();
   if (COLD_SUB_TITLES.has(title)) return 'Cold Subs';
   if (HOT_SUB_TITLES.has(title)) return 'Hot Subs';
+  if (DESSERT_TITLES.has(title)) return 'Desserts';
   if (/\bwrap\b/.test(title)) return 'Wraps';
   // Signature burgers (e.g. "The Dante Hall", "King Kong") say "burger" only in the description.
   if (/(burger|cheeseburger)/.test(text)) return 'Burgers';
@@ -142,6 +159,9 @@ function categoryFor(product: Product) {
   if (title === 'soup and salad') return 'Starters'; // combo item; seeded under Starters
   if (/(salad|greens)/.test(title)) return 'Fresh Garden Salads';
   if (/(dip|tenders|crab cake|ravioli|fries|soup)/.test(title)) return 'Starters';
+  // Cake/dessert fallback for unknown cake items — never match the crab-cake
+  // menu items ("Crab Cakes", "Crab Cake Salad", "Crab Cake Sandwich").
+  if (/(cake|ganache|mousse|creamsicle)/.test(title) && !/crab/.test(title)) return 'Desserts';
   if (/(tray|catering|platter|serves)/.test(text)) return 'Catering Trays';
   return 'Popular Items';
 }
