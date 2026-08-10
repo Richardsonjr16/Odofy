@@ -343,13 +343,16 @@ router.post('/store/:slug/checkout', async (req, res) => {
     }
     const orderNumber = 'ODF-' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
     const useScheduled = !!(is_scheduled && scheduled_window_start && scheduled_window_end);
+    // Phone is optional in the storefront UI ("(optional)") but odofy_trips.customer_phone is
+    // NOT NULL — pass '' instead of null so an empty phone doesn't 500 the whole order.
+    const customerPhone = typeof customer_phone === 'string' && customer_phone.trim() ? customer_phone.trim() : '';
     const result = await pool.query(
       `INSERT INTO odofy_trips (uuid, merchant_id, order_number, customer_name, customer_phone, delivery_address,
         dest_latitude, dest_longitude, status, driver_payout, created_at,
         is_scheduled, scheduled_window_start, scheduled_window_end)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING_PICKUP', $9, NOW(),
         $10, $11, $12) RETURNING uuid, order_number, status`,
-      [require('crypto').randomUUID(), m.uuid, orderNumber, customer_name, customer_phone || null, delivery_address,
+      [require('crypto').randomUUID(), m.uuid, orderNumber, customer_name, customerPhone, delivery_address,
        m.latitude, m.longitude, totalCents,
        useScheduled, useScheduled ? scheduled_window_start : null, useScheduled ? scheduled_window_end : null]
     );
