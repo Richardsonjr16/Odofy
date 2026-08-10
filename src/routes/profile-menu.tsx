@@ -56,6 +56,7 @@ function ProfileMenuPage() {
   const [loading, setLoading] = useState(!profile);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -308,6 +309,16 @@ function ProfileMenuPage() {
               </div>
             );
           })}
+          <button
+            onClick={() => setShowPrivacyModal(true)}
+            className="w-full flex items-center justify-between p-4 bg-white hover:bg-gray-50 border-b border-gray-100 transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-lg">🛡️</span>
+              <span className="text-xs font-bold text-gray-700">Driver Privacy Statement</span>
+            </div>
+            <span className="text-gray-400 text-xs">➔</span>
+          </button>
         </div>
       )}
 
@@ -323,6 +334,147 @@ function ProfileMenuPage() {
       </div>
 
       <DriverFooter />
+
+      {/* Driver Privacy Statement Modal */}
+      {showPrivacyModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowPrivacyModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-h-[70vh] overflow-y-auto mx-4 max-w-lg w-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-gray-800">Driver Privacy Statement</h2>
+              <button
+                onClick={() => setShowPrivacyModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                aria-label="Close privacy statement"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5 text-xs leading-relaxed text-gray-700 space-y-4">
+              <p className="font-semibold text-gray-800">Effective Date: August 2026</p>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-1">1. Information We Collect</h3>
+                <p className="mb-1">
+                  To provide routing, identity verification, and payment services, Odofy
+                  collects and stores the following driver data:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    Full name, email address (.edu verification), phone number, and selfie
+                    photograph for identity verification on a 14-day rolling cycle
+                  </li>
+                  <li>
+                    Real-time GPS location data during active delivery shifts (visible to
+                    merchants and customers only while a trip is in progress)
+                  </li>
+                  <li>
+                    Vehicle information (type, color, license plate, insurance documentation
+                    where applicable)
+                  </li>
+                  <li>
+                    Trip history, earnings ledger, and two-way star rating feedback between
+                    drivers and customers
+                  </li>
+                  <li>
+                    Device token for push notification delivery (order offers, system alerts,
+                    identity re-verification prompts)
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-1">2. How We Use Your Data</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    Identity verification &amp; compliance: Periodic selfie-based re-verification
+                    on a 14-day cycle to maintain platform safety
+                  </li>
+                  <li>
+                    Trip dispatch: GPS coordinates shared with merchants and end-customers
+                    during active deliveries only
+                  </li>
+                  <li>
+                    Payments: Earnings calculated per completed trip, restocking (RTS), and
+                    tips; displayed in-app and stored for tax reporting
+                  </li>
+                  <li>
+                    Safety: QR code delivery handshakes, customer-unreachable countdown
+                    timers, and incident reporting
+                  </li>
+                  <li>
+                    Communications: SMS/email/push notifications for trip offers, system
+                    updates, and identity verification reminders
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-1">3. Data Sharing &amp; Third Parties</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    Mapbox/Google Maps: GPS coordinates for routing, geofencing, and
+                    predictive demand heatmaps
+                  </li>
+                  <li>
+                    Twilio: SMS notifications for delivery updates and identity verification
+                  </li>
+                  <li>
+                    Stripe: Payment processing for driver payouts (bank account/routing
+                    numbers are tokenized and never stored on Odofy servers)
+                  </li>
+                  <li>
+                    Vercel/Neon: Cloud hosting and database infrastructure (data encrypted at
+                    rest and in transit)
+                  </li>
+                  <li>
+                    Law enforcement: Only when required by valid legal process (subpoena,
+                    court order, or warrant)
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-1">4. Data Retention &amp; Your Rights</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    Identity verification selfies are retained for 14 days then automatically
+                    purged
+                  </li>
+                  <li>
+                    Trip history and earnings records are retained for the life of your
+                    account plus 7 years for tax compliance
+                  </li>
+                  <li>
+                    You may request a full data export or account deletion at any time by
+                    emailing privacy@getodofy.com
+                  </li>
+                  <li>
+                    Location data is only collected while you are on an active shift; it is
+                    not stored historically beyond trip waypoints
+                  </li>
+                  <li>
+                    You may opt out of non-essential communications (marketing) while still
+                    receiving required operational messages
+                  </li>
+                  <li>
+                    Odofy does not sell, rent, or monetize your personal data to third-party
+                    data brokers
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
