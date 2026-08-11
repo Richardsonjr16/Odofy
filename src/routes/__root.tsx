@@ -46,12 +46,9 @@ function RootLayout() {
       {/* Premium Global Navigation Header */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 backdrop-blur-md bg-white/90">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between relative">
-          {/* Brand Logo Grid */}
-          <Link to="/" className="flex items-center gap-2 select-none group">
-            <span className="text-xl group-hover:scale-110 transition-transform duration-200">🛵</span>
-            <span className="font-black text-xl tracking-tight text-[#800020]">
-              Odofy<span className="text-gray-400 font-normal">Logistics</span>
-            </span>
+          {/* Brand Logo */}
+          <Link to="/" className="flex items-center">
+            <img src="/Odofy_Embroidery.png" alt="Odofy" className="h-[72px] w-auto" />
           </Link>
 
           {/* Center Navigation Links */}
@@ -117,10 +114,9 @@ function RootLayout() {
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           {/* Column 1: Brand Capsule */}
           <div className="col-span-2 md:col-span-1 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🛵</span>
-              <span className="font-black text-lg tracking-tight text-[#800020]">Odofy<span className="text-gray-400 font-normal">Logistics</span></span>
-            </div>
+            <Link to="/" className="inline-block">
+              <img src="/Odofy_Embroidery.png" alt="Odofy" className="h-[48px] w-auto" />
+            </Link>
             <p className="text-[11px] text-gray-500 font-medium leading-relaxed max-w-xs">
               Own your delivery routes. Retain your customer records. Protect your local Springfield business profit margins upfront.
             </p>
@@ -159,7 +155,7 @@ function RootLayout() {
 
         {/* Global Trademark Legal Strip Banner */}
         <div className="max-w-6xl mx-auto px-6 border-t border-gray-50 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center sm:text-left">
-          <span>&copy; {new Date().getFullYear()} Odofy Logistics, LLC. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} Odofy. All rights reserved.</span>
           <span className="font-medium text-gray-300 normal-case tracking-normal">Delivery routing structures engineered flatly in Springfield, MO</span>
         </div>
       </footer>
