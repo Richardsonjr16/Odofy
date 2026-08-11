@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  base: './',
+  base: '/',
   server: {
     port: 3000,
     host: true,
