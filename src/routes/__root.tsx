@@ -98,7 +98,14 @@ function RootLayout() {
             </div>
           </div>
 
-          {/* Right: Login Dropdown */}
+          {/* Right: Action Buttons (Calculate Savings + Login Dropdown) */}
+          <div className="flex items-center gap-3">
+          <Link
+            to="/calculator"
+            className="rounded-lg bg-[#CFB500] px-5 py-2 text-sm font-black text-gray-950 hover:bg-[#b09a00] transition-colors"
+          >
+            Calculate Savings
+          </Link>
           <div className="relative" ref={loginRef}>
             <button
               onClick={() => setLoginOpen(!loginOpen)}
@@ -127,6 +134,7 @@ function RootLayout() {
                 </Link>
               </div>
             )}
+          </div>
           </div>
         </div>
       </nav>

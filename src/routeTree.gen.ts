@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as EarningsHistoryRouteImport } from './routes/earnings-history'
 import { Route as MerchantRouteImport } from './routes/merchant'
@@ -43,6 +44,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalculatorRoute = CalculatorRouteImport.update({
+  id: '/calculator',
+  path: '/calculator',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -165,6 +171,7 @@ const TOrderIdRoute = TOrderIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/earnings-history': typeof EarningsHistoryRoute
   '/merchant': typeof MerchantRouteWithChildren
@@ -192,6 +199,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/earnings-history': typeof EarningsHistoryRoute
   '/merchant': typeof MerchantRouteWithChildren
@@ -219,6 +227,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/earnings-history': typeof EarningsHistoryRoute
   '/merchant': typeof MerchantRouteWithChildren
@@ -248,6 +257,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/calculator'
     | '/dashboard'
     | '/earnings-history'
     | '/merchant'
@@ -275,6 +285,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/calculator'
     | '/dashboard'
     | '/earnings-history'
     | '/merchant'
@@ -301,6 +312,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/calculator'
     | '/dashboard'
     | '/earnings-history'
     | '/merchant'
@@ -329,6 +341,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  CalculatorRoute: typeof CalculatorRoute
   DashboardRoute: typeof DashboardRoute
   EarningsHistoryRoute: typeof EarningsHistoryRoute
   MerchantRoute: typeof MerchantRouteWithChildren
@@ -361,6 +374,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calculator': {
+      id: '/calculator'
+      path: '/calculator'
+      fullPath: '/calculator'
+      preLoaderRoute: typeof CalculatorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -570,6 +590,7 @@ const StoreRouteWithChildren = StoreRoute._addFileChildren(StoreRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  CalculatorRoute: CalculatorRoute,
   DashboardRoute: DashboardRoute,
   EarningsHistoryRoute: EarningsHistoryRoute,
   MerchantRoute: MerchantRouteWithChildren,
