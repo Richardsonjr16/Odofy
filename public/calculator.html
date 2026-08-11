@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odofy Merchant Savings Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --maroon: #5E0009;
+            --maroon-light: #7A1C25;
+            --gold: #D29F13;
+            --dark: #1E1E1E;
+            --light: #F9F6F6;
+            --white: #FFFFFF;
+            --green: #27AE60;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--light);
+            color: var(--dark);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .calculator-card {
+            background-color: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(94, 0, 9, 0.08);
+            width: 100%;
+            max-width: 550px;
+            padding: 28px;
+            border: 1px solid rgba(94, 0, 9, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            color: var(--maroon);
+            font-size: 26px;
+            font-weight: 800;
+            margin: 0 0 4px 0;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: #666;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: var(--dark);
+        }
+
+        .input-value {
+            color: var(--maroon);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: #E0E0E0;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--maroon);
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--maroon-light);
+        }
+
+        .text-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .currency-symbol, .percent-symbol {
+            position: absolute;
+            font-weight: 700;
+            color: #888;
+            font-size: 16px;
+        }
+
+        .currency-symbol { left: 12px; }
+        .percent-symbol { right: 12px; }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #E0E0E0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--maroon);
+        }
+
+        .commission-input {
+            padding-left: 12px !important;
+            padding-right: 30px !important;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .metric-box {
+            padding: 16px;
+            border-radius: 10px;
+            background-color: #F5F5F5;
+            border: 1px solid #EAEAEA;
+        }
+
+        .metric-box.saved {
+            grid-column: span 2;
+            background-color: rgba(39, 174, 96, 0.08);
+            border: 2px solid var(--green);
+            text-align: center;
+        }
+
+        .metric-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--dark);
+        }
+
+        .metric-box.saved .metric-title {
+            color: var(--green);
+        }
+
+        .metric-box.saved .metric-value {
+            font-size: 32px;
+            color: var(--green);
+        }
+
+        .chart-container {
+            margin-top: 24px;
+            position: relative;
+            height: 200px;
+            width: 100%;
+        }
+
+        .footer-note {
+            text-align: center;
+            font-size: 11px;
+            color: #999;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+<div class="calculator-card">
+    <div class="header">
+        <h1>Odofy vs. Marketplaces</h1>
+        <p>VitalLoop Core LLC — Merchant Profit Protection Utility</p>
+    </div>
+
+    <!-- Average Order Input -->
+    <div class="input-group">
+        <div class="input-label">
+            <span>Average Order Value</span>
+            <span class="input-value" id="order-value-display">$40</span>
+        </div>
+        <input type="range" id="order-value" min="10" max="200" value="40" step="5">
+    </div>
+
+    <!-- Monthly Orders Input -->
+    <div class="input-group">
+        <div class="input-label">
+            <span>Monthly Delivery Orders</span>
+            <span class="input-value" id="order-volume-display">150</span>
+        </div>
+        <input type="range" id="order-volume" min="5" max="1000" value="150" step="5">
+    </div>
+
+    <!-- Marketplace Commission Input -->
+    <div class="input-group">
+        <div class="input-label">
+            <span>Marketplace Commission Percentage</span>
+        </div>
+        <div class="text-input-wrapper">
+            <input type="number" id="commission-rate" class="commission-input" min="1" max="50" value="30">
+            <span class="percent-symbol">%</span>
+        </div>
+    </div>
+
+    <!-- Metrics Results -->
+    <div class="metrics-grid">
+        <div class="metric-box">
+            <div class="metric-title">Marketplace Commissions</div>
+            <div class="metric-value" id="marketplace-cost">$1,800.00</div>
+        </div>
+        <div class="metric-box">
+            <div class="metric-title">Odofy Flat Fee Cost</div>
+            <div class="metric-value" id="odofy-cost">$1,275.00</div>
+        </div>
+        <div class="metric-box saved">
+            <div class="metric-title">Net Cash Revenue Kept</div>
+            <div class="metric-value" id="net-savings">+$525.00</div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-container">
+        <canvas id="savingsChart"></canvas>
+    </div>
+
+    <div class="footer-note">
+        Odofy pricing models represent flat operational infrastructure utilities.
+    </div>
+</div>
+
+<script>
+    const orderValueInput = document.getElementById('order-value');
+    const orderVolumeInput = document.getElementById('order-volume');
+    const commissionRateInput = document.getElementById('commission-rate');
+
+    const orderValueDisplay = document.getElementById('order-value-display');
+    const orderVolumeDisplay = document.getElementById('order-volume-display');
+    
+    const marketplaceCostResult = document.getElementById('marketplace-cost');
+    const odofyCostResult = document.getElementById('odofy-cost');
+    const netSavingsResult = document.getElementById('net-savings');
+
+    // Initialize Chart
+    const ctx = document.getElementById('savingsChart').getContext('2d');
+    const savingsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Marketplace Apps', 'Odofy Utility'],
+            datasets: [{
+                label: 'Monthly Cost Comparison',
+                data: [1800, 1275],
+                backgroundColor: ['#1E1E1E', '#5E0009'],
+                borderRadius: 8,
+                borderWidth: 0,
+                barThickness: 45
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#EAEAEA' },
+                    ticks: { callback: value => '$' + value }
+                },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    function calculateSavings() {
+        const orderValue = parseFloat(orderValueInput.value);
+        const orderVolume = parseInt(orderVolumeInput.value);
+        let commissionRate = parseFloat(commissionRateInput.value);
+
+        // Fallback default validation
+        if (isNaN(commissionRate) || commissionRate < 0) {
+            commissionRate = 30;
+        }
+
+        orderValueDisplay.textContent = '$' + orderValue;
+        orderVolumeDisplay.textContent = orderVolume;
+
+        // Mathematical matrices
+        const grossSales = orderValue * orderVolume;
+        const marketplaceCost = grossSales * (commissionRate / 100);
+        const odofyCost = orderVolume * 8.50;
+        const netSavings = marketplaceCost - odofyCost;
+
+        // DOM string layouts
+        marketplaceCostResult.textContent = '$' + marketplaceCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        odofyCostResult.textContent = '$' + odofyCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        if (netSavings >= 0) {
+            netSavingsResult.textContent = '+$' + netSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            netSavingsResult.style.color = '#27AE60';
+        } else {
+            netSavingsResult.textContent = '-$' + Math.abs(netSavings).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            netSavingsResult.style.color = '#D9534F';
+        }
+
+        // Update Chart Data vectors
+        savingsChart.data.datasets[0].data = [marketplaceCost, odofyCost];
+        savingsChart.update();
+    }
+
+    // Input blur default loop guardrail
+    commissionRateInput.addEventListener('blur', () => {
+        if (commissionRateInput.value.trim() === '') {
+            commissionRateInput.value = '30';
+            calculateSavings();
+        }
+    });
+
+    orderValueInput.addEventListener('input', calculateSavings);
+    orderVolumeInput.addEventListener('input', calculateSavings);
+    commissionRateInput.addEventListener('input', calculateSavings);
+
+    // Initial pass execution
+    calculateSavings();
+</script>
+
+</body>
+</html>
