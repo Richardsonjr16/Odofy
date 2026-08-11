@@ -648,12 +648,12 @@ function ComparePage() {
       <section className="bg-gradient-to-br from-[#800020] via-[#5E0009] to-[#2e0004] px-6 py-16 text-white sm:py-20">
         <div className="mx-auto max-w-6xl">
           <div className="max-w-3xl">
-            <span className="inline-block rounded-full border border-[#D29F13]/40 bg-[#D29F13]/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-[#D29F13]">
+            <span className="inline-block rounded-full border border-[#CFB500]/40 bg-[#CFB500]/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-[#CFB500]">
               B2B Platform Comparison
             </span>
             <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
               Flat-Fee vs. Commission{" "}
-              <span className="text-[#D29F13]">Delivery Platforms</span>
+              <span className="text-[#CFB500]">Delivery Platforms</span>
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray-200">
               Commission marketplace apps take a percentage of every order —
@@ -664,7 +664,7 @@ function ComparePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 to="/merchant-signup"
-                className="rounded-xl bg-[#D29F13] px-6 py-3 text-center text-sm font-bold text-[#2e0004] transition hover:bg-[#e3b52c]"
+                className="rounded-xl bg-[#CFB500] px-6 py-3 text-center text-sm font-bold text-[#2e0004] transition hover:bg-[#b3a400]"
               >
                 Start With Odofy
               </Link>
