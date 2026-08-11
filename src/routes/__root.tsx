@@ -65,7 +65,7 @@ function RootLayout() {
 
           {/* Center Navigation Links */}
           <div className="hidden md:flex items-center gap-8 text-xs font-bold text-gray-600">
-            <Link to="/" className="hover:text-gray-900 transition-colors">Platform Overview</Link>
+            <Link to="/overview" className="hover:text-gray-900 transition-colors">Platform Overview</Link>
             
             {/* Interactive Resources Dropdown Menu Link */}
             <div 

@@ -18,6 +18,7 @@ import { Route as MerchantLoginRouteImport } from './routes/merchant-login'
 import { Route as MerchantSignupRouteImport } from './routes/merchant-signup'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as OrderRouteImport } from './routes/order'
+import { Route as OverviewRouteImport } from './routes/overview'
 import { Route as ProfileMenuRouteImport } from './routes/profile-menu'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as StoreRouteImport } from './routes/store'
@@ -77,6 +78,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
 const OrderRoute = OrderRouteImport.update({
   id: '/order',
   path: '/order',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OverviewRoute = OverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileMenuRoute = ProfileMenuRouteImport.update({
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/merchant-signup': typeof MerchantSignupRoute
   '/notifications': typeof NotificationsRoute
   '/order': typeof OrderRoute
+  '/overview': typeof OverviewRoute
   '/profile-menu': typeof ProfileMenuRoute
   '/register': typeof RegisterRoute
   '/store': typeof StoreRouteWithChildren
@@ -192,6 +199,7 @@ export interface FileRoutesByTo {
   '/merchant-signup': typeof MerchantSignupRoute
   '/notifications': typeof NotificationsRoute
   '/order': typeof OrderRoute
+  '/overview': typeof OverviewRoute
   '/profile-menu': typeof ProfileMenuRoute
   '/register': typeof RegisterRoute
   '/track': typeof TrackRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/merchant-signup': typeof MerchantSignupRoute
   '/notifications': typeof NotificationsRoute
   '/order': typeof OrderRoute
+  '/overview': typeof OverviewRoute
   '/profile-menu': typeof ProfileMenuRoute
   '/register': typeof RegisterRoute
   '/store': typeof StoreRouteWithChildren
@@ -246,6 +255,7 @@ export interface FileRouteTypes {
     | '/merchant-signup'
     | '/notifications'
     | '/order'
+    | '/overview'
     | '/profile-menu'
     | '/register'
     | '/store'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/merchant-signup'
     | '/notifications'
     | '/order'
+    | '/overview'
     | '/profile-menu'
     | '/register'
     | '/track'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/merchant-signup'
     | '/notifications'
     | '/order'
+    | '/overview'
     | '/profile-menu'
     | '/register'
     | '/store'
@@ -324,6 +336,7 @@ export interface RootRouteChildren {
   MerchantSignupRoute: typeof MerchantSignupRoute
   NotificationsRoute: typeof NotificationsRoute
   OrderRoute: typeof OrderRoute
+  OverviewRoute: typeof OverviewRoute
   ProfileMenuRoute: typeof ProfileMenuRoute
   RegisterRoute: typeof RegisterRoute
   StoreRoute: typeof StoreRouteWithChildren
@@ -397,6 +410,13 @@ declare module '@tanstack/react-router' {
       path: '/order'
       fullPath: '/order'
       preLoaderRoute: typeof OrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/overview': {
+      id: '/overview'
+      path: '/overview'
+      fullPath: '/overview'
+      preLoaderRoute: typeof OverviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile-menu': {
@@ -557,6 +577,7 @@ const rootRouteChildren: RootRouteChildren = {
   MerchantSignupRoute: MerchantSignupRoute,
   NotificationsRoute: NotificationsRoute,
   OrderRoute: OrderRoute,
+  OverviewRoute: OverviewRoute,
   ProfileMenuRoute: ProfileMenuRoute,
   RegisterRoute: RegisterRoute,
   StoreRoute: StoreRouteWithChildren,
