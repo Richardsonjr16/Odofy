@@ -25,6 +25,7 @@ import { Route as TrackRouteImport } from './routes/track'
 import { Route as TripsRouteImport } from './routes/trips'
 import { Route as AdminDriversRouteImport } from './routes/admin/drivers'
 import { Route as AdminTaxesRouteImport } from './routes/admin/taxes'
+import { Route as CompareFlatFeeVsCommissionRouteImport } from './routes/compare.flat-fee-vs-commission'
 import { Route as CustomerDashboardRouteImport } from './routes/customer/dashboard'
 import { Route as MerchantDashboardRouteImport } from './routes/merchant/dashboard'
 import { Route as MerchantMarketingRouteImport } from './routes/merchant/marketing'
@@ -113,6 +114,12 @@ const AdminTaxesRoute = AdminTaxesRouteImport.update({
   path: '/taxes',
   getParentRoute: () => AdminRoute,
 } as any)
+const CompareFlatFeeVsCommissionRoute =
+  CompareFlatFeeVsCommissionRouteImport.update({
+    id: '/compare/flat-fee-vs-commission',
+    path: '/compare/flat-fee-vs-commission',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const CustomerDashboardRoute = CustomerDashboardRouteImport.update({
   id: '/customer/dashboard',
   path: '/customer/dashboard',
@@ -166,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
+  '/compare/flat-fee-vs-commission': typeof CompareFlatFeeVsCommissionRoute
   '/customer/dashboard': typeof CustomerDashboardRoute
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
@@ -190,6 +198,7 @@ export interface FileRoutesByTo {
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
+  '/compare/flat-fee-vs-commission': typeof CompareFlatFeeVsCommissionRoute
   '/customer/dashboard': typeof CustomerDashboardRoute
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
@@ -216,6 +225,7 @@ export interface FileRoutesById {
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/taxes': typeof AdminTaxesRoute
+  '/compare/flat-fee-vs-commission': typeof CompareFlatFeeVsCommissionRoute
   '/customer/dashboard': typeof CustomerDashboardRoute
   '/merchant/dashboard': typeof MerchantDashboardRoute
   '/merchant/marketing': typeof MerchantMarketingRoute
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
+    | '/compare/flat-fee-vs-commission'
     | '/customer/dashboard'
     | '/merchant/dashboard'
     | '/merchant/marketing'
@@ -267,6 +278,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
+    | '/compare/flat-fee-vs-commission'
     | '/customer/dashboard'
     | '/merchant/dashboard'
     | '/merchant/marketing'
@@ -292,6 +304,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/admin/drivers'
     | '/admin/taxes'
+    | '/compare/flat-fee-vs-commission'
     | '/customer/dashboard'
     | '/merchant/dashboard'
     | '/merchant/marketing'
@@ -316,6 +329,7 @@ export interface RootRouteChildren {
   StoreRoute: typeof StoreRouteWithChildren
   TrackRoute: typeof TrackRoute
   TripsRoute: typeof TripsRoute
+  CompareFlatFeeVsCommissionRoute: typeof CompareFlatFeeVsCommissionRoute
   CustomerDashboardRoute: typeof CustomerDashboardRoute
   TOrderIdRoute: typeof TOrderIdRoute
 }
@@ -434,6 +448,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTaxesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/compare/flat-fee-vs-commission': {
+      id: '/compare/flat-fee-vs-commission'
+      path: '/compare/flat-fee-vs-commission'
+      fullPath: '/compare/flat-fee-vs-commission'
+      preLoaderRoute: typeof CompareFlatFeeVsCommissionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customer/dashboard': {
       id: '/customer/dashboard'
       path: '/customer/dashboard'
@@ -541,6 +562,7 @@ const rootRouteChildren: RootRouteChildren = {
   StoreRoute: StoreRouteWithChildren,
   TrackRoute: TrackRoute,
   TripsRoute: TripsRoute,
+  CompareFlatFeeVsCommissionRoute: CompareFlatFeeVsCommissionRoute,
   CustomerDashboardRoute: CustomerDashboardRoute,
   TOrderIdRoute: TOrderIdRoute,
 }
