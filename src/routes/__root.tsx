@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, Outlet, HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import appCss from "~/styles/app.css?url";
@@ -39,8 +38,6 @@ function RootDocument({ children }: { children: ReactNode }) {
 }
 
 function RootLayout() {
-  const [isResourcesOpen, setIsResourcesOpen] = useState(false)
-
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 antialiased font-sans">
       {/* Premium Global Navigation Header */}
@@ -53,50 +50,22 @@ function RootLayout() {
 
           {/* Center Navigation Links */}
           <div className="hidden md:flex items-center gap-8 text-xs font-bold text-gray-600">
-            <Link to="/" className="hover:text-gray-900 transition-colors">Platform Overview</Link>
-            
-            {/* Interactive Resources Dropdown Menu Link */}
-            <div 
-              className="relative cursor-pointer py-2"
-              onMouseEnter={() => setIsResourcesOpen(true)}
-              onMouseLeave={() => setIsResourcesOpen(false)}
-            >
-              <span className={`hover:text-gray-900 transition-colors flex items-center gap-1 ${isResourcesOpen ? 'text-gray-900' : ''}`}>
-                Resources <span className="text-[9px] text-gray-400">▼</span>
-              </span>
-
-              {isResourcesOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 w-56 bg-white border border-gray-100 rounded-xl shadow-xl p-2 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <Link 
-                    to="/compare/flat-fee-vs-commission" 
-                    className="p-2.5 hover:bg-red-50/40 rounded-lg text-left transition-colors block text-gray-700 hover:text-[#800020]"
-                  >
-                    <span className="block font-black text-[11px] mb-0.5">Compare Platforms</span>
-                    <span className="block text-[10px] text-gray-400 font-medium">Flat-Fee vs. Commissions Matrix</span>
-                  </Link>
-                  <a 
-                    href="/calculator.html" 
-                    className="p-2.5 hover:bg-red-50/40 rounded-lg text-left transition-colors block text-gray-700 hover:text-[#800020]"
-                  >
-                    <span className="block font-black text-[11px] mb-0.5">Savings Calculator</span>
-                    <span className="block text-[10px] text-gray-400 font-medium">Compute Your Real Leakage Metrics</span>
-                  </a>
-                </div>
-              )}
-            </div>
+            <Link to="/overview" className="hover:text-gray-900 transition-colors">Platform Overview</Link>
+            <Link to="/compare/flat-fee-vs-commission" className="hover:text-gray-900 transition-colors">Compare Platforms</Link>
+            <Link to="/calculator" className="hover:text-gray-900 transition-colors">Savings Calculator</Link>
           </div>
 
-          {/* Right Core Action Button Container Layout Grid */}
+          {/* Right Core Action Button Container (Slate/Navy Border Outline applied) */}
           <div className="flex items-center gap-3">
             <Link 
               to="/calculator" 
-              className="px-4 py-2 bg-transparent text-slate-900 border-2 border-slate-900 font-black text-xs rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm block text-center"
+              className="px-4 py-2 border-2 border-slate-700 text-slate-800 font-black text-xs rounded-xl hover:bg-slate-50 transition-all shadow-sm"
             >
               Calculate Savings
             </Link>
             <Link 
-              to="/" 
-              className="px-4 py-2 bg-[#800020] text-white font-bold text-xs rounded-xl hover:bg-[#5a0016] transition-all shadow-md block text-center"
+              to="/merchant" 
+              className="px-4 py-2 bg-[#5E0009] text-white font-bold text-xs rounded-xl hover:bg-[#3a0004] transition-all shadow-md shadow-red-950/10 block"
             >
               Login
             </Link>
@@ -122,13 +91,13 @@ function RootLayout() {
             </p>
           </div>
 
-          {/* Column 2: Core Platform Links */}
+          {/* Column 2: Core Platform Links (Merchant Dashboard target fixed) */}
           <div className="space-y-3">
             <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Product Channels</h4>
             <ul className="text-xs font-semibold text-gray-600 space-y-2">
-              <li><Link to="/" className="hover:text-[#800020] transition-colors">Merchant Dashboard</Link></li>
-              <li><a href="/calculator.html" className="hover:text-[#800020] transition-colors">Shopify Webhooks Integration</a></li>
-              <li><Link to="/" className="hover:text-[#800020] transition-colors">Driver Fleet Portal</Link></li>
+              <li><Link to="/merchant" className="hover:text-[#5E0009] transition-colors">Merchant Dashboard</Link></li>
+              <li><Link to="/overview" className="hover:text-[#5E0009] transition-colors">Shopify Webhooks Integration</Link></li>
+              <li><Link to="/" className="hover:text-[#5E0009] transition-colors">Driver Fleet Portal</Link></li>
             </ul>
           </div>
 
@@ -136,9 +105,9 @@ function RootLayout() {
           <div className="space-y-3">
             <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Resources</h4>
             <ul className="text-xs font-semibold text-gray-600 space-y-2">
-              <li><Link to="/compare/flat-fee-vs-commission" className="hover:text-[#800020] transition-colors">Compare Platforms</Link></li>
-              <li><a href="/calculator.html" className="hover:text-[#800020] transition-colors">Savings Calculator</a></li>
-              <li><Link to="/compare/flat-fee-vs-commission" className="hover:text-[#800020] transition-colors">Flat-Fee Operations Guide</Link></li>
+              <li><Link to="/compare/flat-fee-vs-commission" className="hover:text-[#5E0009] transition-colors">Compare Platforms</Link></li>
+              <li><Link to="/calculator" className="hover:text-[#5E0009] transition-colors">Savings Calculator</Link></li>
+              <li><Link to="/overview" className="hover:text-[#5E0009] transition-colors">Flat-Fee Operations Guide</Link></li>
             </ul>
           </div>
 
@@ -147,8 +116,8 @@ function RootLayout() {
             <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Legal Compliance</h4>
             <ul className="text-xs font-semibold text-gray-600 space-y-2">
               <li><span className="text-green-600 font-bold block text-[11px]">✓ A2P 10DLC Verified Campaign</span></li>
-              <li><Link to="/" className="hover:text-[#800020] transition-colors">Driver Privacy Statement</Link></li>
-              <li><Link to="/" className="hover:text-[#800020] transition-colors">Terms of Operations Service</Link></li>
+              <li><Link to="/" className="hover:text-[#5E0009] transition-colors">Driver Privacy Statement</Link></li>
+              <li><Link to="/" className="hover:text-[#5E0009] transition-colors">Terms of Operations Service</Link></li>
             </ul>
           </div>
         </div>
