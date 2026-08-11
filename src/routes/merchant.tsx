@@ -101,7 +101,7 @@ function MerchantPage() {
       {/* ── HEADER ── */}
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
+          <a href="/" className="flex items-center gap-3 transition-opacity hover:opacity-75">
             <div
               className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white"
               style={{ backgroundColor: MSU_MAROON }}
@@ -114,7 +114,7 @@ function MerchantPage() {
                 <p className="text-xs text-gray-500">{email}</p>
               )}
             </div>
-          </div>
+          </a>
           <div className="flex items-center gap-4">
             <nav className="flex items-center gap-1">
               <a

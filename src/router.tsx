@@ -5,11 +5,13 @@ import { routeTree } from "./routeTree.gen";
 function NotFound() {
   return (
     <div className="min-h-dvh bg-white text-charcoal flex flex-col items-center justify-center px-6 text-center">
-      <img
-        src="/brand_mark.png"
-        alt="Odofy"
-        className="mx-auto mb-6 h-20 w-auto sm:h-24 lg:h-28"
-      />
+      <a href="/" className="block">
+        <img
+          src="/brand_mark.png"
+          alt="Odofy"
+          className="mx-auto mb-6 h-20 w-auto sm:h-24 lg:h-28"
+        />
+      </a>
       <h1 className="text-4xl font-extrabold tracking-tight text-msu-maroon sm:text-5xl lg:text-6xl">
         Deliveries, simplified.
       </h1>
