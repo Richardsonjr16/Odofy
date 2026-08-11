@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react'
 import { Link, Outlet, HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import appCss from "~/styles/app.css?url";
@@ -38,6 +39,20 @@ function RootDocument({ children }: { children: ReactNode }) {
 }
 
 function RootLayout() {
+  const [isResourcesOpen, setIsResourcesOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+  const loginRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (loginRef.current && !loginRef.current.contains(e.target as Node)) {
+        setLoginOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 antialiased font-sans">
       {/* Premium Global Navigation Header */}
@@ -51,24 +66,75 @@ function RootLayout() {
           {/* Center Navigation Links */}
           <div className="hidden md:flex items-center gap-8 text-xs font-bold text-gray-600">
             <Link to="/overview" className="hover:text-gray-900 transition-colors">Platform Overview</Link>
-            <Link to="/compare/flat-fee-vs-commission" className="hover:text-gray-900 transition-colors">Compare Platforms</Link>
-            <Link to="/calculator" className="hover:text-gray-900 transition-colors">Savings Calculator</Link>
+
+            {/* Interactive Resources Dropdown Menu Link */}
+            <div
+              className="relative cursor-pointer py-2"
+              onMouseEnter={() => setIsResourcesOpen(true)}
+              onMouseLeave={() => setIsResourcesOpen(false)}
+            >
+              <span className={`hover:text-gray-900 transition-colors flex items-center gap-1 ${isResourcesOpen ? 'text-gray-900' : ''}`}>
+                Resources <span className="text-[9px] text-gray-400">▼</span>
+              </span>
+
+              {isResourcesOpen && (
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-56 bg-white border border-gray-100 rounded-xl shadow-xl p-2 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <Link
+                    to="/compare/flat-fee-vs-commission"
+                    className="p-2.5 hover:bg-red-50/40 rounded-lg text-left transition-colors block text-gray-700 hover:text-[#800020]"
+                  >
+                    <span className="block font-black text-[11px] mb-0.5">Compare Platforms</span>
+                    <span className="block text-[10px] text-gray-400 font-medium">Flat-Fee vs. Commissions Matrix</span>
+                  </Link>
+                  <Link
+                    to="/calculator"
+                    className="p-2.5 hover:bg-red-50/40 rounded-lg text-left transition-colors block text-gray-700 hover:text-[#800020]"
+                  >
+                    <span className="block font-black text-[11px] mb-0.5">Savings Calculator</span>
+                    <span className="block text-[10px] text-gray-400 font-medium">Compute Your Real Leakage Metrics</span>
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right Core Action Button Container (Slate/Navy Border Outline applied) */}
+          {/* Right: Action Buttons (Calculate Savings + Login Dropdown) */}
           <div className="flex items-center gap-3">
-            <Link 
-              to="/calculator" 
-              className="px-4 py-2 border-2 border-slate-700 text-slate-800 font-black text-xs rounded-xl hover:bg-slate-50 transition-all shadow-sm"
+            <Link
+              to="/calculator"
+              className="rounded-lg bg-[#CFB500] px-5 py-2 text-sm font-black text-gray-950 hover:bg-[#b09a00] transition-colors"
             >
               Calculate Savings
             </Link>
-            <Link 
-              to="/merchant" 
-              className="px-4 py-2 bg-[#5E0009] text-white font-bold text-xs rounded-xl hover:bg-[#3a0004] transition-all shadow-md shadow-red-950/10 block"
-            >
-              Login
-            </Link>
+            <div className="relative" ref={loginRef}>
+              <button
+                onClick={() => setLoginOpen(!loginOpen)}
+                className="rounded-lg bg-[#800020] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a0016]"
+              >
+                Login
+              </button>
+              {loginOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white shadow-lg z-50">
+                  <div className="border-b border-gray-100 px-4 py-3 text-sm font-semibold text-gray-800">
+                    Sign In to Your Dashboard
+                  </div>
+                  <Link
+                    to="/dashboard"
+                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setLoginOpen(false)}
+                  >
+                    🚗 I am a Driver
+                  </Link>
+                  <Link
+                    to="/merchant-login"
+                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-b-xl transition-colors"
+                    onClick={() => setLoginOpen(false)}
+                  >
+                    🏪 I am a Merchant
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </nav>
