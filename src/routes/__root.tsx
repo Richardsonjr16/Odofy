@@ -102,7 +102,7 @@ function RootLayout() {
           <div className="flex items-center gap-3">
             <Link
               to="/calculator"
-              className="rounded-lg bg-[#CFB500] px-5 py-2 text-sm font-black text-gray-950 hover:bg-[#b09a00] transition-colors"
+              className="rounded-lg bg-white border-2 border-slate-700 px-5 py-2 text-sm font-black text-slate-800 hover:bg-slate-50 transition-colors"
             >
               Calculate Savings
             </Link>
