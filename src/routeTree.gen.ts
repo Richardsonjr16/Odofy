@@ -25,6 +25,7 @@ import { Route as OverviewRouteImport } from './routes/overview'
 import { Route as ProfileMenuRouteImport } from './routes/profile-menu'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as StoreRouteImport } from './routes/store'
+import { Route as TermsOfOperationsServiceRouteImport } from './routes/terms-of-operations-service'
 import { Route as TrackRouteImport } from './routes/track'
 import { Route as TripsRouteImport } from './routes/trips'
 import { Route as AdminDriversRouteImport } from './routes/admin/drivers'
@@ -118,6 +119,12 @@ const StoreRoute = StoreRouteImport.update({
   path: '/store',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsOfOperationsServiceRoute =
+  TermsOfOperationsServiceRouteImport.update({
+    id: '/terms-of-operations-service',
+    path: '/terms-of-operations-service',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const TrackRoute = TrackRouteImport.update({
   id: '/track',
   path: '/track',
@@ -197,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/profile-menu': typeof ProfileMenuRoute
   '/register': typeof RegisterRoute
   '/store': typeof StoreRouteWithChildren
+  '/terms-of-operations-service': typeof TermsOfOperationsServiceRoute
   '/track': typeof TrackRoute
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
@@ -226,6 +234,7 @@ export interface FileRoutesByTo {
   '/overview': typeof OverviewRoute
   '/profile-menu': typeof ProfileMenuRoute
   '/register': typeof RegisterRoute
+  '/terms-of-operations-service': typeof TermsOfOperationsServiceRoute
   '/track': typeof TrackRoute
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
@@ -257,6 +266,7 @@ export interface FileRoutesById {
   '/profile-menu': typeof ProfileMenuRoute
   '/register': typeof RegisterRoute
   '/store': typeof StoreRouteWithChildren
+  '/terms-of-operations-service': typeof TermsOfOperationsServiceRoute
   '/track': typeof TrackRoute
   '/trips': typeof TripsRoute
   '/admin/drivers': typeof AdminDriversRoute
@@ -289,6 +299,7 @@ export interface FileRouteTypes {
     | '/profile-menu'
     | '/register'
     | '/store'
+    | '/terms-of-operations-service'
     | '/track'
     | '/trips'
     | '/admin/drivers'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/overview'
     | '/profile-menu'
     | '/register'
+    | '/terms-of-operations-service'
     | '/track'
     | '/trips'
     | '/admin/drivers'
@@ -348,6 +360,7 @@ export interface FileRouteTypes {
     | '/profile-menu'
     | '/register'
     | '/store'
+    | '/terms-of-operations-service'
     | '/track'
     | '/trips'
     | '/admin/drivers'
@@ -379,6 +392,7 @@ export interface RootRouteChildren {
   ProfileMenuRoute: typeof ProfileMenuRoute
   RegisterRoute: typeof RegisterRoute
   StoreRoute: typeof StoreRouteWithChildren
+  TermsOfOperationsServiceRoute: typeof TermsOfOperationsServiceRoute
   TrackRoute: typeof TrackRoute
   TripsRoute: typeof TripsRoute
   CompareFlatFeeVsCommissionRoute: typeof CompareFlatFeeVsCommissionRoute
@@ -498,6 +512,13 @@ declare module '@tanstack/react-router' {
       path: '/store'
       fullPath: '/store'
       preLoaderRoute: typeof StoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms-of-operations-service': {
+      id: '/terms-of-operations-service'
+      path: '/terms-of-operations-service'
+      fullPath: '/terms-of-operations-service'
+      preLoaderRoute: typeof TermsOfOperationsServiceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/track': {
@@ -644,6 +665,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileMenuRoute: ProfileMenuRoute,
   RegisterRoute: RegisterRoute,
   StoreRoute: StoreRouteWithChildren,
+  TermsOfOperationsServiceRoute: TermsOfOperationsServiceRoute,
   TrackRoute: TrackRoute,
   TripsRoute: TripsRoute,
   CompareFlatFeeVsCommissionRoute: CompareFlatFeeVsCommissionRoute,

@@ -183,7 +183,7 @@ function RootLayout() {
             <ul className="text-xs font-semibold text-gray-600 space-y-2">
               <li><span className="text-green-600 font-bold block text-[11px]">✓ A2P 10DLC Verified Campaign</span></li>
               <li><Link to="/driver-privacy-statement" className="hover:text-[#5E0009] transition-colors">Driver Privacy Statement</Link></li>
-              <li><Link to="/" className="hover:text-[#5E0009] transition-colors">Terms of Operations Service</Link></li>
+              <li><Link to="/terms-of-operations-service" className="hover:text-[#5E0009] transition-colors">Terms of Operations Service</Link></li>
             </ul>
           </div>
         </div>
