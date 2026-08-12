@@ -1294,17 +1294,15 @@ function DashboardPage() {
       <div className="min-h-dvh bg-[#F8F9FA] flex flex-col items-center justify-center px-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <a href="/" className="block transition-opacity hover:opacity-75">
-              <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ backgroundColor: currentMarketColors.primary }}
-              >
-                <span className="text-white text-2xl font-extrabold">O</span>
-              </div>
-              <h1 className="text-2xl font-extrabold text-gray-900 mb-1">
-                Odofy
-              </h1>
-            </a>
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ backgroundColor: currentMarketColors.primary }}
+            >
+              <span className="text-white text-2xl font-extrabold">O</span>
+            </div>
+            <h1 className="text-2xl font-extrabold text-gray-900 mb-1">
+              Odofy
+            </h1>
             <p className="text-sm text-gray-500 font-medium">
               Driver Dashboard
             </p>

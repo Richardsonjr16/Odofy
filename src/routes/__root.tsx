@@ -1,7 +1,32 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, Outlet, HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { Link, Outlet, HeadContent, Scripts, createRootRoute, useLocation } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import appCss from "~/styles/app.css?url";
+
+// App/portal routes render as standalone full-screen pages (driver dashboard,
+// merchant portal, admin, tracking, storefronts). They must NOT be wrapped in
+// the marketing header/footer — only the public marketing pages keep that chrome.
+const BARE_ROUTE_PREFIXES = [
+  "/dashboard",
+  "/register",
+  "/merchant",
+  "/admin",
+  "/track",
+  "/order",
+  "/t",
+  "/trips",
+  "/earnings-history",
+  "/notifications",
+  "/profile-menu",
+  "/customer",
+  "/store",
+];
+
+function isBareRoute(pathname: string): boolean {
+  return BARE_ROUTE_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -42,6 +67,7 @@ function RootLayout() {
   const [isResourcesOpen, setIsResourcesOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const loginRef = useRef<HTMLDivElement>(null)
+  const location = useLocation()
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -52,6 +78,15 @@ function RootLayout() {
     document.addEventListener("mousedown", handleClick)
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
+
+  // Standalone app pages: no marketing header/footer at all.
+  if (isBareRoute(location.pathname)) {
+    return (
+      <div className="min-h-screen bg-gray-50 text-gray-900 antialiased font-sans">
+        <Outlet />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 antialiased font-sans">
