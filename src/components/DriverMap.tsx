@@ -131,12 +131,9 @@ const DriverMap = forwardRef<google.maps.Map | null, DriverMapProps>(
       mapInstance.current = new window.google.maps.Map(mapRef.current, {
         center: SPRINGFIELD_CENTER,
         zoom: DEFAULT_ZOOM,
-        disableDefaultUI: false,
-        zoomControl: true,
+        disableDefaultUI: true, // hides navigation/compass, pan, scale, etc.
+        zoomControl: true, // keep zoom (+/-) only
         gestureHandling: "greedy",
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
         styles: [{ featureType: "poi.business", stylers: [{ visibility: "off" }] }],
       });
 

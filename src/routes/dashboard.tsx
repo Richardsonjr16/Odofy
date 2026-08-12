@@ -423,131 +423,12 @@ function DashboardPage() {
   const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
   const targetedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const [currentPostedLimit, setCurrentPostedLimit] = useState<number | null>(
-    null,
-  );
-  const [currentSpeed, setCurrentSpeed] = useState<number>(0);
   // ── Bottom sliding panel state (collapsible detail sheet) ──
   const [isPanelExpanded, setIsPanelExpanded] = useState(false);
   // ── Driver Privacy Statement modal state ──
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   // Swipe origin Y for the trip-offers drawer (null = no touch in progress)
   const drawerTouchStartY = useRef<number | null>(null);
-
-  // ── Predictive Demand Heatmap state ──
-  const [heatmapData, setHeatmapData] = useState<any[]>([]);
-  const [showHeatmap, setShowHeatmap] = useState(false);
-  const heatmapLayerRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
-  const speedLimit = currentPostedLimit ?? 55;
-  const toggleHeatmapVisibility = () => {
-    const next = !showHeatmap;
-    setShowHeatmap(next);
-    if (heatmapLayerRef.current) {
-      heatmapLayerRef.current.setMap(next ? mapRef.current : null);
-    }
-  };
-
-  // ── Speed limit resolution via OpenStreetMap Overpass API ──
-  useEffect(() => {
-    if (!currentLocation) return;
-
-    let cancelled = false;
-    const { lat, lng } = currentLocation;
-
-    // Query OSM Overpass API for maxspeed tag on the nearest highway segment
-    const query = `[out:json];way(around:40,${lat},${lng})["highway"]["maxspeed"];out tags 1;`;
-    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-
-    fetch(url)
-      .then((res) => res.json())
-      .then((data: { elements?: Array<{ tags?: { maxspeed?: string } }> }) => {
-        if (cancelled) return;
-        const elements = data.elements ?? [];
-        if (elements.length === 0) {
-          setCurrentPostedLimit(null);
-          return;
-        }
-        // maxspeed can be a plain number ("25") or with unit ("25 mph")
-        const raw = elements[0].tags?.maxspeed;
-        if (!raw) {
-          setCurrentPostedLimit(null);
-          return;
-        }
-        const numeric = parseInt(raw, 10);
-        setCurrentPostedLimit(Number.isFinite(numeric) ? numeric : null);
-      })
-      .catch(() => {
-        if (!cancelled) setCurrentPostedLimit(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentLocation]);
-  // ── Predictive Demand Heatmap: fetch every 5 min ──
-  useEffect(() => {
-    if (!profile?.uuid) return;
-    const token = sessionStorage.getItem("odofy_driver_token");
-    if (!token) return;
-
-    const fetchHeatmap = () => {
-      fetch("/api/v1/driver/predictive-demand", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((r) => r.json())
-        .then((data: any[]) => setHeatmapData(data))
-        .catch(() => {}); // silent fail — heatmap is non-critical
-    };
-
-    fetchHeatmap();
-    const interval = setInterval(fetchHeatmap, 300000);
-    return () => clearInterval(interval);
-  }, [profile?.uuid]);
-
-  // ── Predictive Demand Heatmap: render Google Maps heatmap layer ──
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !window.google?.maps?.visualization) return;
-
-    // Clear previous layer
-    if (heatmapLayerRef.current) {
-      heatmapLayerRef.current.setMap(null);
-      heatmapLayerRef.current = null;
-    }
-
-    if (heatmapData.length === 0) return;
-
-    const points = heatmapData.map((p: any) => ({
-      location: new google.maps.LatLng(p.lat, p.lng),
-      weight: p.weight,
-    }));
-
-    heatmapLayerRef.current = new google.maps.visualization.HeatmapLayer({
-      data: new google.maps.MVCArray(points),
-      map: showHeatmap ? map : null,
-      radius: 30,
-      opacity: 0.6,
-      gradient: [
-        "rgba(0,0,0,0)",
-        "rgba(0,0,0,0)",
-        "rgba(255,140,0,0.6)",
-        "rgba(255,0,0,0.8)",
-      ],
-    });
-  }, [heatmapData, mapRef.current, showHeatmap]);
-
-  // ── Map padding: shift attributions out from under speedometer ──
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    // mapRef.current is a google.maps.Map (no easeTo). Feature-detect so an
-    // easeTo-capable (Mapbox-style) canvas gets bottom-left padding; a Google
-    // Map is a safe no-op (its attribution sits bottom-right, clear of the
-    // speedometer layer).
-    (map as unknown as {
-      easeTo?: (o: { padding: { bottom: number; left: number } }) => void;
-    }).easeTo?.({ padding: { bottom: 80, left: 20 } });
-  }, [mapRef.current]);
 
   // ── NEW STATE: Delivery flow ──
   const [activeDeliveryStep, setActiveDeliveryStep] = useState<
@@ -731,11 +612,10 @@ function DashboardPage() {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
-        const mph =
-          position.coords.speed != null
-            ? Math.round(position.coords.speed * 2.23694)
-            : 0;
-        setCurrentSpeed(mph);
+        setCurrentLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
       },
       (error) => {
         if (error.PERMISSION_DENIED) {
@@ -1560,18 +1440,6 @@ function DashboardPage() {
             </div>
           </div>
 
-          {/* ── Speed Limit Sign ── */}
-          <div className="absolute bottom-4 left-4 bg-white border border-gray-900/90 rounded-lg w-12 h-16 flex flex-col items-center justify-between py-2 shadow-sm z-40 select-none pointer-events-none transition-all">
-            <span className="text-[8px] font-bold text-gray-500 tracking-wider uppercase leading-none">
-              SPEED
-            </span>
-            <span className="text-[8px] font-bold text-gray-500 tracking-wider uppercase leading-none -mt-0.5">
-              LIMIT
-            </span>
-            <span className="text-xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
-              {currentPostedLimit ? currentPostedLimit : "--"}
-            </span>
-          </div>
         </div>
 
         {/* ── Bottom info panel ── */}
@@ -2093,24 +1961,12 @@ function DashboardPage() {
                 currentLocation={currentLocation}
               />
 
-              {/* ── Hotzones Pill Badge ── */}
-              <button onClick={() => toggleHeatmapVisibility()} className="absolute top-4 left-4 z-50 flex items-center bg-[#5E0009] border border-red-900 rounded-full px-5 py-2.5 shadow-lg text-white font-black text-sm tracking-wide transition-all active:scale-[0.97]">🔥 Hotzones</button>
-
               {locationError && (
                 <div className="absolute bottom-4 left-4 bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium px-2 py-1 rounded-full z-20">
                   {locationError}
                 </div>
               )}
 
-              {/* ── Speedometer — flat layer elements ── */}
-              <div className="absolute bottom-4 left-4 z-50 bg-white border-[3px] border-black rounded-xl w-14 h-16 flex flex-col items-center justify-center shadow-md select-none">
-                <span className="text-[7px] font-black text-gray-800 tracking-tighter leading-none mb-0.5 uppercase">SPEED LIMIT</span>
-                <span className="text-2xl font-extrabold text-black tracking-tight leading-none">{speedLimit || 55}</span>
-              </div>
-              <div className="absolute bottom-4 left-[82px] z-50 flex flex-col items-start justify-center drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)]">
-                <span className={`text-3xl font-black tracking-tight leading-none ${currentSpeed > speedLimit ? 'text-[#D93025]' : 'text-black'}`}>{currentSpeed || 0}</span>
-                <span className="text-xs font-bold text-gray-500 lowercase mt-0.5">mph</span>
-              </div>
             </div>
 
             {/* ── BOTTOM 60% — SLIDING TOUCH CONSOLE SHEET ── */}
@@ -2659,8 +2515,7 @@ function DashboardPage() {
                 <h3 className="font-bold text-gray-800 mb-1">3. Data Sharing &amp; Third Parties</h3>
                 <ul className="list-disc pl-5 space-y-1">
                   <li>
-                    Mapbox/Google Maps: GPS coordinates for routing, geofencing, and
-                    predictive demand heatmaps
+                    Mapbox/Google Maps: GPS coordinates for routing and geofencing
                   </li>
                   <li>
                     Twilio: SMS notifications for delivery updates and identity verification
