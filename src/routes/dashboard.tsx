@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { Fragment, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import DriverMap from "../components/DriverMap";
 import { Html5Qrcode } from "html5-qrcode";
 
@@ -65,6 +65,17 @@ interface AvailableTrip {
   order_number?: string;
   total_stops?: number;
   cross_stack_bonus?: number;
+}
+
+interface EarningsTrip {
+  uuid: string;
+  customer_name: string;
+  delivery_address: string;
+  driver_payout: string;
+  driver_tip_allocation: string;
+  batch_id: string | null;
+  created_at: string;
+  status: string;
 }
 
 interface PickupItem {
@@ -162,6 +173,88 @@ function generateTimeSlots(): { value: string; label: string }[] {
     slots.push({ value, label });
   }
   return slots;
+}
+
+// ── SPARK-STYLE OPERATIONAL HELPERS ──
+function deriveDropoffZone(address: string): string {
+  const cityState = address.match(
+    /([A-Za-z][A-Za-z .'\-]+?),\s*([A-Z]{2})\s+(\d{5})(?:-\d{4})?/,
+  );
+  if (cityState) return `${cityState[1].trim()}, ${cityState[2]} ${cityState[3]}`;
+  const zip = address.match(/\b\d{5}\b/);
+  if (zip) return `ZIP ${zip[0]}`;
+  const city = address.split(",")[1]?.trim();
+  if (city) return city;
+  return address.length > 42 ? `${address.slice(0, 39)}…` : address;
+}
+
+function formatEarningsTime(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "--";
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function isToday(ts: string): boolean {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+// ── GUIDED TRIP PROGRESS BAR: Store → Pickup → Deliver → Complete ──
+function TripStepBar({ current }: { current: 1 | 2 | 3 | 4 }) {
+  const steps = ["Store", "Pickup", "Deliver", "Complete"] as const;
+  return (
+    <div className="w-full flex items-center justify-center px-4 py-3 bg-white">
+      {steps.map((label, i) => {
+        const step = (i + 1) as 1 | 2 | 3 | 4;
+        const active = step === current;
+        const done = step < current;
+        return (
+          <Fragment key={label}>
+            {i > 0 && (
+              <div
+                className={`h-[3px] flex-1 rounded-full mx-1 ${
+                  step <= current ? "bg-[#5E0009]" : "bg-gray-200"
+                }`}
+              />
+            )}
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black transition-colors ${
+                  active
+                    ? "bg-[#5E0009] text-white shadow-md"
+                    : done
+                      ? "bg-[#5E0009]/10 text-[#5E0009]"
+                      : "bg-gray-100 text-gray-400"
+                }`}
+              >
+                {done ? "✓" : step}
+              </div>
+              <span
+                className={`text-[9px] font-bold uppercase tracking-wide mt-1 ${
+                  active
+                    ? "text-[#5E0009]"
+                    : done
+                      ? "text-gray-600"
+                      : "text-gray-400"
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
 }
 
 // ── SLIDE TRACK COMPONENT ──
@@ -416,11 +509,18 @@ function DashboardPage() {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab");
       if (tab === "trips") return "trips";
+      if (tab === "earnings") return "earnings";
     }
     return "home";
   });
   const [showAlertBanner, setShowAlertBanner] = useState(false);
   const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
+  // ── SPARK-STYLE OFFER FEED STATE ──
+  const [selectedOffer, setSelectedOffer] = useState<AvailableTrip | null>(null);
+  const [arrivedAtStore, setArrivedAtStore] = useState(false);
+  const [completionToast, setCompletionToast] = useState<string | null>(null);
+  const [earningsTrips, setEarningsTrips] = useState<EarningsTrip[]>([]);
+  const [earningsLoading, setEarningsLoading] = useState(false);
   const targetedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   // ── Bottom sliding panel state (collapsible detail sheet) ──
@@ -550,6 +650,7 @@ function DashboardPage() {
               current ? { ...current, status: "DELIVERED" } : current,
             );
             setActiveDeliveryStep("IDLE");
+            setArrivedAtStore(false);
             setShowRatingModal(true);
           } catch (error) {
             setScannerError(
@@ -847,11 +948,7 @@ function DashboardPage() {
     setLoading(true);
   };
 
-  const handleReject = (tripId: string) => {
-    setRemovedIds((prev) => new Set(prev).add(tripId));
-  };
-
-  // ── Accept a trip from the trip deck ──
+  // ── Accept a trip from the offer feed ──
   const handleApprove = async (tripId: string) => {
     setApproveError(null);
     setApprovingIds((prev) => new Set(prev).add(tripId));
@@ -996,6 +1093,7 @@ function DashboardPage() {
     } else {
       setActiveDeliveryStep("EN_ROUTE");
       setCheckedItems(new Set());
+      setArrivedAtStore(false);
     }
   };
 
@@ -1004,6 +1102,7 @@ function DashboardPage() {
     setShowSeparationModal(false);
     setActiveDeliveryStep("EN_ROUTE");
     setCheckedItems(new Set());
+    setArrivedAtStore(false);
   };
 
   // ── Slide to confirm arrival complete ──
@@ -1096,6 +1195,7 @@ function DashboardPage() {
       );
       setClaimedTrip(null);
       setActiveDeliveryStep("IDLE");
+      setArrivedAtStore(false);
       setRestockSuccess(true);
       window.setTimeout(() => setRestockSuccess(false), 3000);
     } catch (error) {
@@ -1119,9 +1219,76 @@ function DashboardPage() {
     window.open(url, "_blank");
   };
 
+  // ── Navigate to merchant (pickup) ──
+  const handleNavigateToMerchant = () => {
+    if (!claimedTrip) return;
+    const latitude = claimedTrip.merchant_lat;
+    const longitude = claimedTrip.merchant_lng;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&dir_action=navigate`;
+    window.open(url, "_blank");
+  };
+
+  // ── Load delivered-trip earnings for the Earnings tab ──
+  const loadEarnings = useCallback(() => {
+    if (!token) return;
+    setEarningsLoading(true);
+    fetch("/api/v1/odofy/drivers/earnings", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data: EarningsTrip[]) => {
+        setEarningsTrips(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setEarningsTrips([]))
+      .finally(() => setEarningsLoading(false));
+  }, [token]);
+
+  // ── Post-completion offer chaining: toast + fresh offer feed ──
+  const refreshFeedAfterCompletion = useCallback(
+    (payout: string) => {
+      setCompletionToast(payout);
+      window.setTimeout(() => setCompletionToast(null), 4500);
+      if (token) {
+        fetch("/api/v1/odofy/trips/available", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((r) => r.json())
+          .then((data: AvailableTrip[]) => {
+            setTrips(Array.isArray(data) ? data : []);
+            setRemovedIds(new Set());
+          })
+          .catch(() => {});
+        loadEarnings();
+      }
+    },
+    [token, loadEarnings],
+  );
+
+  // ── Accept from the offer detail sheet (routes through existing claim logic) ──
+  const handleOfferAccept = async () => {
+    if (!selectedOffer) return;
+    if (targetedTrip && targetedTrip.uuid === selectedOffer.uuid) {
+      await handleTargetedAccept(selectedOffer.uuid);
+    } else {
+      await handleApprove(selectedOffer.uuid);
+    }
+    setSelectedOffer(null);
+  };
+
+  // ── Lazy-load earnings whenever the Earnings tab is opened ──
+  useEffect(() => {
+    if (currentTab === "earnings" && token) {
+      loadEarnings();
+    }
+  }, [currentTab, token, loadEarnings]);
+
   // ── Submit star rating ──
   const handleSubmitRating = async () => {
     if (!claimedTrip) return;
+    const completedPayout = (
+      (parseFloat(claimedTrip.driver_payout) || 0) +
+      (parseFloat(claimedTrip.driver_tip_allocation) || 0)
+    ).toFixed(2);
     if (ratingStars < 1) {
       setRatingError("Please select a star rating.");
       return;
@@ -1166,6 +1333,10 @@ function DashboardPage() {
     setPickupItems([]);
     setCurrentStopIndex(0);
     setActiveDeliveryStep("IDLE");
+    setArrivedAtStore(false);
+    // Spark-style offer chaining: back to a fresh offer feed with a
+    // "Trip complete" confirmation so the driver is never left idle.
+    refreshFeedAfterCompletion(completedPayout);
   };
 
   // ── LOGIN SCREEN ──
@@ -1304,16 +1475,16 @@ function DashboardPage() {
       </button>
 
       {/* Earnings tab */}
-      <a
-        href="/earnings-history"
-        className="flex flex-col items-center justify-center flex-1 py-2 cursor-pointer transition-all z-40 select-none no-underline"
-        style={{ color: "#707478" }}
+      <button
+        onClick={() => setCurrentTab("earnings")}
+        className="flex flex-col items-center justify-center flex-1 py-2 cursor-pointer transition-all z-40 select-none"
+        style={{ color: currentTab === "earnings" ? "#5E0009" : "#707478" }}
       >
         <span className="text-xl leading-none">💰</span>
         <span className="text-[10px] font-semibold tracking-wide uppercase mt-0.5">
           Earnings
         </span>
-      </a>
+      </button>
 
       {/* Notifications tab */}
       <a
@@ -1413,6 +1584,11 @@ function DashboardPage() {
             </p>
           </div>
           <div className="w-9 h-9" />
+        </div>
+
+        {/* ── Guided trip progress: Deliver step active ── */}
+        <div className="z-30 border-b border-gray-100">
+          <TripStepBar current={3} />
         </div>
 
         {/* ── Full-bleed map area ── */}
@@ -1775,6 +1951,11 @@ function DashboardPage() {
           Identity check submitted successfully.
         </div>
       )}
+      {completionToast && (
+        <div className="fixed left-4 right-4 top-4 z-[70] rounded-xl bg-emerald-600 px-4 py-3 text-center text-sm font-bold text-white shadow-lg animate-slide-down">
+          ✅ Trip complete — ${completionToast} added
+        </div>
+      )}
       {showAlertBanner && (
         <div
           onClick={() => {
@@ -1805,6 +1986,157 @@ function DashboardPage() {
           </span>
         </div>
       )}
+
+      {/* ── OFFER DETAIL SHEET (tap card → full trip info → Accept Offer) ── */}
+      {selectedOffer &&
+        (() => {
+          const trip = selectedOffer;
+          const basePayout = parseFloat(trip.driver_payout) || 8.5;
+          const tip = parseFloat(trip.driver_tip_allocation) || 0;
+          const total = basePayout + tip;
+          const pickup = SPRINGFIELD_PICKUPS[0];
+          const dropoffZone = deriveDropoffZone(
+            trip.delivery_address || SPRINGFIELD_DROPOFFS[0],
+          );
+          const tripMiles = currentLocation
+            ? haversineDistance(
+                currentLocation.lat,
+                currentLocation.lng,
+                Number(trip.dest_latitude),
+                Number(trip.dest_longitude),
+              )
+            : null;
+          const isApproving = approvingIds.has(trip.uuid);
+          return (
+            <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+              <div className="w-full max-w-md mx-auto bg-white rounded-t-[28px] max-h-[92vh] overflow-y-auto px-6 pt-4 pb-8 flex flex-col gap-4 shadow-[0_-10px_40px_rgba(0,0,0,0.2)] animate-slide-up">
+                {/* Grab handle + close */}
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
+                  <button
+                    onClick={() => setSelectedOffer(null)}
+                    className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 text-lg font-bold cursor-pointer"
+                    aria-label="Close offer details"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <p className="text-[11px] font-black uppercase tracking-widest text-gray-400">
+                  Trip Offer
+                </p>
+
+                {/* Payout headline */}
+                <div className="flex items-baseline flex-wrap gap-x-2">
+                  <span className="text-5xl font-black text-gray-900 tracking-tight">
+                    ${total.toFixed(2)}
+                  </span>
+                  <span className="text-sm font-medium text-gray-400 pb-1">
+                    {tip > 0
+                      ? `includes $${tip.toFixed(2)} tip`
+                      : "estimated payout"}
+                  </span>
+                </div>
+                {tripMiles !== null && (
+                  <p className="text-sm font-semibold text-emerald-700 -mt-1">
+                    {Math.round(tripMiles * 3) <= 90
+                      ? `${Math.round(tripMiles * 3)} min away · `
+                      : ""}
+                    {tripMiles.toFixed(1)} mi from you
+                  </p>
+                )}
+
+                {/* Pickup */}
+                <div className="bg-gray-50 rounded-2xl p-4 flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#5E0009]/10 flex items-center justify-center shrink-0">
+                    <span className="text-base">🏪</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">
+                      Pickup · Store
+                    </p>
+                    <p className="text-sm font-extrabold text-gray-900">
+                      {pickup.split("(")[0].trim() || "Store pickup"}
+                    </p>
+                    <p className="text-xs font-medium text-gray-500 leading-snug mt-0.5">
+                      {pickup}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Dropoff */}
+                <div className="bg-gray-50 rounded-2xl p-4 flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#5E0009]/10 flex items-center justify-center shrink-0">
+                    <span className="text-base">🎯</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">
+                      Dropoff · {dropoffZone}
+                    </p>
+                    <p className="text-sm font-extrabold text-gray-900">
+                      {trip.customer_name || "Customer"}
+                    </p>
+                    <p className="text-xs font-medium text-gray-500 leading-snug mt-0.5">
+                      {trip.delivery_address}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Order + items */}
+                <div className="bg-gray-50 rounded-2xl p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
+                    Order #{trip.order_number || trip.uuid.slice(0, 6)}
+                  </p>
+                  <div className="space-y-2">
+                    {SAMPLE_PICKUP_ITEMS.slice(0, 3).map((item) => (
+                      <div
+                        key={item.title}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="text-sm font-semibold text-gray-700">
+                          {item.title}
+                        </span>
+                        <span className="text-xs font-bold text-gray-500 bg-white rounded-full px-2 py-0.5">
+                          ×{item.quantity}
+                        </span>
+                      </div>
+                    ))}
+                    <p className="text-[11px] font-medium text-gray-400 pt-1">
+                      {SAMPLE_PICKUP_ITEMS.length} items • match bag tag ID at
+                      pickup
+                    </p>
+                  </div>
+                </div>
+
+                {approveError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    {approveError}
+                  </div>
+                )}
+
+                {/* Single prominent CTA */}
+                <button
+                  onClick={handleOfferAccept}
+                  disabled={isApproving}
+                  className="w-full py-4 text-white font-bold text-base rounded-full text-center shadow-lg transition-all active:scale-[0.98] disabled:opacity-60 cursor-pointer"
+                  style={{
+                    backgroundColor: currentMarketColors.primary,
+                    boxShadow: `0 4px 10px ${hexToRgba(currentMarketColors.primary, 0.25)}`,
+                  }}
+                >
+                  {isApproving ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Claiming…
+                    </span>
+                  ) : (
+                    "Accept Offer"
+                  )}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* ── ACCEPTANCE MODAL ── */}
       {showAcceptanceModal && (
@@ -1951,6 +2283,102 @@ function DashboardPage() {
               </div>
             )}
           </div>
+        ) : currentTab === "earnings" ? (
+          <div className="w-full h-full bg-gray-50 overflow-y-auto px-4 py-6 pb-24">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Earnings</h2>
+            <p className="text-xs font-medium text-gray-400 mb-4">
+              Today's deliveries — updated live
+            </p>
+
+            {earningsLoading && earningsTrips.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div
+                  className="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-t-transparent"
+                  style={{ borderColor: currentMarketColors.primary }}
+                />
+                <p className="mt-3 text-sm text-gray-400 font-medium">
+                  Loading earnings…
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Today's total — Spark-style headline */}
+                {(() => {
+                  const todayTrips = earningsTrips.filter((t) =>
+                    isToday(t.created_at),
+                  );
+                  const todayTotal = todayTrips.reduce(
+                    (sum, t) =>
+                      sum +
+                      (parseFloat(t.driver_payout) || 0) +
+                      (parseFloat(t.driver_tip_allocation) || 0),
+                    0,
+                  );
+                  return (
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-5 text-center">
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                        Today's Total
+                      </p>
+                      <p className="text-4xl font-black text-gray-900 mt-1 tracking-tight">
+                        ${todayTotal.toFixed(2)}
+                      </p>
+                      <p className="text-xs font-semibold text-emerald-700 mt-1">
+                        {todayTrips.length} delivery
+                        {todayTrips.length === 1 ? "" : "ies"}
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* Trip-by-trip list */}
+                {earningsTrips.length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center py-10">
+                    No completed trips yet. Deliveries will appear here.
+                  </p>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    {earningsTrips.map((trip, idx) => {
+                      const payout =
+                        (parseFloat(trip.driver_payout) || 0) +
+                        (parseFloat(trip.driver_tip_allocation) || 0);
+                      return (
+                        <div
+                          key={trip.uuid}
+                          className={`flex items-center justify-between px-4 py-3.5 ${
+                            idx > 0 ? "border-t border-gray-50" : ""
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-gray-900">
+                              {formatEarningsTime(trip.created_at)}
+                              <span className="font-medium text-gray-400">
+                                {" "}
+                                · Order #{trip.uuid.slice(0, 6)}
+                              </span>
+                            </p>
+                            <p className="text-xs font-medium text-gray-500 truncate">
+                              {trip.customer_name || "Customer"} ·{" "}
+                              {deriveDropoffZone(trip.delivery_address)}
+                            </p>
+                          </div>
+                          <span className="text-sm font-black text-emerald-700 shrink-0 ml-3">
+                            +${payout.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <a
+                  href="/earnings-history"
+                  className="block text-center text-xs font-bold text-[#5E0009] mt-5 underline"
+                >
+                  View full earnings history →
+                </a>
+              </>
+            )}
+          </div>
         ) : (
           <>
             {/* ── TOP 40% — FULL-BLEED GEOCATCH MAP ── */}
@@ -1987,6 +2415,24 @@ function DashboardPage() {
               {/* Drag handle — sticky */}
               <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-4 block sticky top-0 bg-white pb-2 z-30" />
 
+              {/* ── GUIDED TRIP PROGRESS: Store → Pickup → Deliver → Complete ── */}
+              {claimedTrip &&
+                (activeDeliveryStep === "IDLE" ||
+                  activeDeliveryStep === "LOADING" ||
+                  activeDeliveryStep === "MINIMIZED") && (
+                  <div className="-mx-4 mb-4 border-y border-gray-100">
+                    <TripStepBar
+                      current={
+                        activeDeliveryStep === "IDLE"
+                          ? 1
+                          : activeDeliveryStep === "LOADING"
+                            ? 2
+                            : 3
+                      }
+                    />
+                  </div>
+                )}
+
               {/* ── LOADING STATE: Pickup Checklist ── */}
               {activeDeliveryStep === "LOADING" ? (
                 <div className="flex-1 flex flex-col justify-center px-4">
@@ -2004,22 +2450,52 @@ function DashboardPage() {
                     <p className="text-lg font-bold text-gray-700 mt-1">
                       Customer: {claimedTrip?.customer_name || "Customer"}
                     </p>
+                    <p className="text-sm font-semibold text-gray-600 mt-2">
+                      {SPRINGFIELD_PICKUPS[0]}
+                    </p>
                     <p className="text-[11px] font-medium text-gray-400 mt-3 leading-relaxed">
-                      Ensure bag tag label matches the Order ID above before
-                      loading vehicle.
+                      {arrivedAtStore
+                        ? "Ensure bag tag label matches the Order ID above before loading vehicle."
+                        : "Head to the store listed above, then check in to start loading."}
                     </p>
                   </div>
 
-                  {/* Confirm Button */}
-                  <button
-                    onClick={() => {
-                      setActiveDeliveryStep("EN_ROUTE");
-                      setCheckedItems(new Set());
-                    }}
-                    className="w-full bg-[#5E0009] text-white font-bold py-4 rounded-xl transition-all shadow-md active:scale-[0.98]"
-                  >
-                    Confirm Order Loaded &amp; Start Route
-                  </button>
+                  {!arrivedAtStore ? (
+                    <>
+                      {/* Spark-style arrival check-in: one clear next action */}
+                      <button
+                        onClick={handleNavigateToMerchant}
+                        className="w-full border-2 border-gray-200 text-gray-700 font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] mb-3"
+                      >
+                        🧭 Navigate to Store
+                      </button>
+                      <button
+                        onClick={() => setArrivedAtStore(true)}
+                        className="w-full bg-[#5E0009] text-white font-bold py-4 rounded-xl transition-all shadow-md active:scale-[0.98]"
+                      >
+                        ✓ I've Arrived at Store
+                      </button>
+                      <p className="text-[10px] font-medium text-gray-400 text-center mt-2">
+                        Check in when you reach the pickup counter
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {/* Confirm Button */}
+                      <button
+                        onClick={() => {
+                          setActiveDeliveryStep("EN_ROUTE");
+                          setCheckedItems(new Set());
+                        }}
+                        className="w-full bg-[#5E0009] text-white font-bold py-4 rounded-xl transition-all shadow-md active:scale-[0.98]"
+                      >
+                        Confirm Order Loaded &amp; Start Route
+                      </button>
+                      <p className="text-[10px] font-medium text-gray-400 text-center mt-2">
+                        Loaded order — next stop: the customer
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : claimedTrip && activeDeliveryStep === "IDLE" ? (
                 /* ── CLAIMED STATE: Slide to Start Trip ── */
@@ -2034,9 +2510,15 @@ function DashboardPage() {
                       trackColor={currentMarketColors.primary}
                       thumbColor={darkPrimary}
                     />
+                    <button
+                      onClick={handleNavigateToMerchant}
+                      className="w-full border-2 border-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all active:scale-[0.98] mt-3"
+                    >
+                      🧭 Navigate to Store
+                    </button>
                   </div>
                   <p className="text-xs font-medium text-gray-400 text-center">
-                    Swipe right on the track above to begin your delivery
+                    Swipe to start, then head to the store to check in
                   </p>
                 </>
               ) : (
@@ -2054,16 +2536,16 @@ function DashboardPage() {
                           const idx = 0;
                           const pickup = SPRINGFIELD_PICKUPS[0];
                           const dropoff = SPRINGFIELD_DROPOFFS[0];
-                          const isApproving = approvingIds.has(
-                            targetedTrip.uuid,
-                          );
                           const strokeDash = (targetedTimer / 60) * 62.83;
 
                           // Gate: never mount the offer card unless the driver is online
                           // (Odofy Now active) with a committed shift window end time.
                           if (!isOdofyNowActive || !offerEndTime) return null;
                           return (
-                            <div className="w-full bg-[#E8F0FE] rounded-2xl mb-4 overflow-hidden border border-[#D2E3FC] shadow-sm">
+                            <div
+                              onClick={() => setSelectedOffer(targetedTrip)}
+                              className="w-full bg-[#E8F0FE] rounded-2xl mb-4 overflow-hidden border border-[#D2E3FC] shadow-sm cursor-pointer active:scale-[0.99] transition-all"
+                            >
                               <div className="w-full bg-[#E8F0FE] px-4 py-2.5 flex items-center justify-between border-b border-[#D2E3FC]">
                                 <span className="text-sm font-semibold text-[#185ABC]">
                                   Just for you
@@ -2146,25 +2628,15 @@ function DashboardPage() {
                                     REJECT
                                   </button>
                                   <button
-                                    onClick={() =>
-                                      handleTargetedAccept(targetedTrip.uuid)
-                                    }
-                                    disabled={isApproving}
-                                    className="flex-1 py-3 text-white font-bold text-sm rounded-full text-center shadow-md transition-colors disabled:opacity-60"
+                                    onClick={() => setSelectedOffer(targetedTrip)}
+                                    className="flex-1 py-3 text-white font-bold text-sm rounded-full text-center shadow-md transition-colors"
                                     style={{
                                       backgroundColor:
                                         currentMarketColors.primary,
                                       boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}`,
                                     }}
                                   >
-                                    {isApproving ? (
-                                      <span className="inline-flex items-center gap-1.5">
-                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                        Claiming…
-                                      </span>
-                                    ) : (
-                                      "ACCEPT"
-                                    )}
+                                    VIEW DETAILS
                                   </button>
                                 </div>
                               </div>
@@ -2336,76 +2808,115 @@ function DashboardPage() {
                             SPRINGFIELD_PICKUPS[
                               idx % SPRINGFIELD_PICKUPS.length
                             ];
-                          const dropoff =
-                            SPRINGFIELD_DROPOFFS[
-                              idx % SPRINGFIELD_DROPOFFS.length
-                            ];
+                          const dropoffZone = deriveDropoffZone(
+                            trip.delivery_address || SPRINGFIELD_DROPOFFS[0],
+                          );
+                          const tripMiles = currentLocation
+                            ? haversineDistance(
+                                currentLocation.lat,
+                                currentLocation.lng,
+                                Number(trip.dest_latitude),
+                                Number(trip.dest_longitude),
+                              )
+                            : null;
+                          const etaMins =
+                            tripMiles !== null ? Math.round(tripMiles * 3) : null;
                           const isApproving = approvingIds.has(trip.uuid);
 
                           return (
                             <div
                               key={trip.uuid}
-                              className="w-full bg-white border border-gray-200/80 rounded-2xl p-4 mb-4 shadow-sm relative hover:border-gray-300 transition-all flex flex-col gap-2.5 snap-start"
+                              onClick={() => setSelectedOffer(trip)}
+                              className="w-full bg-white border border-gray-200/80 rounded-2xl p-4 mb-4 shadow-sm relative hover:border-[#5E0009]/40 hover:shadow-md transition-all flex flex-col gap-2.5 snap-start cursor-pointer active:scale-[0.99]"
                             >
-                              <div className="flex items-baseline justify-between">
+                              {/* Payout headline — reads like an offer */}
+                              <div className="flex items-start justify-between">
                                 <div className="flex items-baseline">
-                                  <span className="text-3xl font-bold text-gray-900">
+                                  <span className="text-4xl font-black text-gray-900 tracking-tight">
                                     ${total.toFixed(2)}
                                   </span>
-                                  <span className="text-xs font-normal text-gray-400 ml-1 pb-1 self-end">
-                                    estimate
+                                  <span className="text-xs font-normal text-gray-400 ml-1.5 pb-1 self-end">
+                                    {tip > 0
+                                      ? `incl. $${tip.toFixed(2)} tip`
+                                      : "payout"}
                                   </span>
                                 </div>
-                                <span className="text-gray-400 text-2xl leading-none">
-                                  ›
+                                {isApproving && (
+                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#5E0009] border-t-transparent mt-2" />
+                                )}
+                              </div>
+
+                              {/* Distance / ETA (only when computable) */}
+                              {tripMiles !== null && (
+                                <p className="text-sm font-semibold text-emerald-700">
+                                  {etaMins !== null && etaMins <= 90
+                                    ? `● ${etaMins} min away · `
+                                    : ""}
+                                  {tripMiles.toFixed(1)} mi
+                                </p>
+                              )}
+
+                              <div className="h-px bg-gray-100 my-0.5" />
+
+                              {/* Pickup merchant */}
+                              <div className="flex items-start gap-2">
+                                <span className="text-base leading-none mt-0.5">
+                                  🏪
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                                    Pickup
+                                  </p>
+                                  <p className="text-sm font-bold text-gray-800 leading-snug">
+                                    {pickup.split("(")[0].trim() ||
+                                      "Store pickup"}
+                                  </p>
+                                  <p className="text-xs font-medium text-gray-500 leading-snug">
+                                    {pickup}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Dropoff zone */}
+                              <div className="flex items-start gap-2">
+                                <span className="text-base leading-none mt-0.5">
+                                  🎯
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                                    Dropoff
+                                  </p>
+                                  <p className="text-sm font-bold text-gray-800 leading-snug">
+                                    {dropoffZone}
+                                  </p>
+                                  <p className="text-xs font-medium text-gray-500 leading-snug truncate">
+                                    {trip.delivery_address}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Meta chips */}
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[11px] font-bold text-gray-500 bg-gray-100 rounded-full px-2.5 py-1">
+                                  Order #
+                                  {trip.order_number || trip.uuid.slice(0, 6)}
+                                </span>
+                                <span className="text-[11px] font-bold text-gray-500 bg-gray-100 rounded-full px-2.5 py-1">
+                                  {trip.total_stops || 2} stop
+                                  {trip.total_stops && trip.total_stops > 1
+                                    ? "s"
+                                    : ""}
                                 </span>
                               </div>
-                              <p className="text-sm font-semibold text-gray-600 tracking-tight">
-                                {trip.total_stops || 2} stops • 4.3 miles
-                                • 25 mins
-                              </p>
-                              {trip.cross_stack_bonus &&
-                              trip.cross_stack_bonus > 0 ? (
-                                <span className="bg-[#E6F4EA] text-[#137333] px-2.5 py-0.5 rounded-md text-xs font-bold w-fit uppercase tracking-wider">
-                                  Multi-trip incentive: +$
-                                  {trip.cross_stack_bonus.toFixed(2)}{" "}
-                                  cross-stack bonus
+
+                              {/* View details affordance */}
+                              <div className="flex items-center justify-center gap-1 w-full bg-gray-50 rounded-xl py-3 mt-1 border border-gray-100">
+                                <span className="text-sm font-bold text-[#5E0009]">
+                                  View details
                                 </span>
-                              ) : null}
-                              <p className="text-sm font-semibold text-gray-800 mt-1">
-                                🏪 ASAP • Boutique Retail Pickup • Odofy
-                                Axis
-                              </p>
-                              <p className="text-xs font-medium text-gray-500 mt-1 whitespace-pre-line leading-relaxed">
-                                📍 Pickup: {pickup}
-                                {"\n"}🎯 Dropoff: {dropoff}
-                              </p>
-                              <div className="flex items-center gap-3 mt-2 w-full">
-                                <button
-                                  onClick={() => handleReject(trip.uuid)}
-                                  className="flex-1 py-3 bg-[#EEF0F2] text-[#1A1C1E] font-bold text-sm rounded-full text-center shadow-sm hover:bg-[#E1E3E5] transition-colors"
-                                >
-                                  REJECT
-                                </button>
-                                <button
-                                  onClick={() => handleApprove(trip.uuid)}
-                                  disabled={isApproving}
-                                  className="flex-1 py-3 text-white font-bold text-sm rounded-full text-center shadow-md transition-colors disabled:opacity-60"
-                                  style={{
-                                    backgroundColor:
-                                      currentMarketColors.primary,
-                                    boxShadow: `0 2px 4px ${hexToRgba(currentMarketColors.primary, 0.1)}`,
-                                  }}
-                                >
-                                  {isApproving ? (
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                      Claiming…
-                                    </span>
-                                  ) : (
-                                    "ACCEPT"
-                                  )}
-                                </button>
+                                <span className="text-[#5E0009] text-lg leading-none">
+                                  ›
+                                </span>
                               </div>
                             </div>
                           );
@@ -2812,6 +3323,9 @@ function DashboardPage() {
             className="rounded-[28px] p-6 max-w-sm w-full text-center shadow-xl flex flex-col items-center gap-5 animate-slide-up"
             style={{ backgroundColor: darkPrimary }}
           >
+            <div className="w-full bg-white rounded-2xl p-1.5">
+              <TripStepBar current={4} />
+            </div>
             <p className="text-white text-lg font-bold mt-2">
               Rate Your Delivery Experience
             </p>
