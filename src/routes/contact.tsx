@@ -67,8 +67,7 @@ function ContactPage() {
           Book a Free Demo
         </h1>
         <p className="text-base text-gray-600 font-medium leading-relaxed max-w-2xl mx-auto">
-          See Odofy in action. We'll show you how it works, answer your questions, and give you a
-          custom quote — no pressure, no commitment.
+          See Odofy in action. We'll show you how it works and answer your questions — no pressure, no commitment.
         </p>
       </section>
 
