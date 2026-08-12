@@ -246,10 +246,6 @@ function ContactPage() {
                     title: 'Live demo',
                     body: 'We walk you through the Odofy platform with your own menu as an example.',
                   },
-                  {
-                    title: 'Custom quote',
-                    body: 'You get a flat-fee quote specific to your restaurant — no surprises.',
-                  },
                 ].map((step, i) => (
                   <li key={step.title} className="flex gap-4">
                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[#5E0009] text-white text-sm font-black flex items-center justify-center">
