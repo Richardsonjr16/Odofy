@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DriverPrivacyStatementRouteImport } from './routes/driver-privacy-statement'
 import { Route as EarningsHistoryRouteImport } from './routes/earnings-history'
 import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as MerchantLoginRouteImport } from './routes/merchant-login'
@@ -60,6 +61,11 @@ const ContactRoute = ContactRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverPrivacyStatementRoute = DriverPrivacyStatementRouteImport.update({
+  id: '/driver-privacy-statement',
+  path: '/driver-privacy-statement',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EarningsHistoryRoute = EarningsHistoryRouteImport.update({
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/calculator': typeof CalculatorRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
+  '/driver-privacy-statement': typeof DriverPrivacyStatementRoute
   '/earnings-history': typeof EarningsHistoryRoute
   '/merchant': typeof MerchantRouteWithChildren
   '/merchant-login': typeof MerchantLoginRoute
@@ -209,6 +216,7 @@ export interface FileRoutesByTo {
   '/calculator': typeof CalculatorRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
+  '/driver-privacy-statement': typeof DriverPrivacyStatementRoute
   '/earnings-history': typeof EarningsHistoryRoute
   '/merchant': typeof MerchantRouteWithChildren
   '/merchant-login': typeof MerchantLoginRoute
@@ -238,6 +246,7 @@ export interface FileRoutesById {
   '/calculator': typeof CalculatorRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
+  '/driver-privacy-statement': typeof DriverPrivacyStatementRoute
   '/earnings-history': typeof EarningsHistoryRoute
   '/merchant': typeof MerchantRouteWithChildren
   '/merchant-login': typeof MerchantLoginRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/calculator'
     | '/contact'
     | '/dashboard'
+    | '/driver-privacy-statement'
     | '/earnings-history'
     | '/merchant'
     | '/merchant-login'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/calculator'
     | '/contact'
     | '/dashboard'
+    | '/driver-privacy-statement'
     | '/earnings-history'
     | '/merchant'
     | '/merchant-login'
@@ -326,6 +337,7 @@ export interface FileRouteTypes {
     | '/calculator'
     | '/contact'
     | '/dashboard'
+    | '/driver-privacy-statement'
     | '/earnings-history'
     | '/merchant'
     | '/merchant-login'
@@ -356,6 +368,7 @@ export interface RootRouteChildren {
   CalculatorRoute: typeof CalculatorRoute
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
+  DriverPrivacyStatementRoute: typeof DriverPrivacyStatementRoute
   EarningsHistoryRoute: typeof EarningsHistoryRoute
   MerchantRoute: typeof MerchantRouteWithChildren
   MerchantLoginRoute: typeof MerchantLoginRoute
@@ -408,6 +421,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver-privacy-statement': {
+      id: '/driver-privacy-statement'
+      path: '/driver-privacy-statement'
+      fullPath: '/driver-privacy-statement'
+      preLoaderRoute: typeof DriverPrivacyStatementRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/earnings-history': {
@@ -613,6 +633,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalculatorRoute: CalculatorRoute,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
+  DriverPrivacyStatementRoute: DriverPrivacyStatementRoute,
   EarningsHistoryRoute: EarningsHistoryRoute,
   MerchantRoute: MerchantRouteWithChildren,
   MerchantLoginRoute: MerchantLoginRoute,
