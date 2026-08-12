@@ -28,7 +28,10 @@ const HOP_BY_HOP = new Set([
 ]);
 
 async function proxyApiRequest(request) {
-  const url = new URL(request.url);
+  // Vercel's web-handler runtime passes a RELATIVE request.url (e.g. "/" or
+  // "/api/..."), which `new URL(input)` rejects. Parse against a placeholder
+  // base; absolute URLs still win over the base.
+  const url = new URL(request.url, "http://vercel.local");
   if (!url.pathname.startsWith("/api/")) return null;
 
   const backendUrl = String(process.env.BACKEND_URL || "")
@@ -83,12 +86,27 @@ const ssrHandler =
     : { fetch: server };
 
 export default async function handler(request) {
-  const proxied = await proxyApiRequest(request);
-  if (proxied) return proxied;
   try {
-    return await ssrHandler.fetch(request);
+    // Vercel's web-handler runtime can hand us a request whose url is a
+    // RELATIVE path. Rebuild it as an absolute URL (forwarded host/proto when
+    // present, placeholder otherwise) so both the proxy parser and the SSR
+    // handler's internal fetch() calls always see a valid absolute URL.
+    const rawUrl = new URL(request.url, "http://vercel.local");
+    const host =
+      request.headers.get("x-forwarded-host") ||
+      request.headers.get("host") ||
+      rawUrl.host ||
+      "vercel.local";
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    const absoluteReq = new Request(
+      `${proto}://${host}${rawUrl.pathname}${rawUrl.search}`,
+      request,
+    );
+    const proxied = await proxyApiRequest(absoluteReq);
+    if (proxied) return proxied;
+    return await ssrHandler.fetch(absoluteReq);
   } catch (error) {
-    console.error("[api/server] SSR request failed", error);
+    console.error("[api/server] request failed", error);
     return new Response("Internal Server Error", {
       status: 500,
       headers: { "content-type": "text/plain" },
