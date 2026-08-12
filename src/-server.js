@@ -22,6 +22,7 @@ const stripeWebhookRoutes = require('./routes/api/webhooks/-stripe');
 const verifyIdentityRoutes = require('./routes/api/-verify-identity');
 const ratingsRoutes = require('./routes/-ratings');
 const ordersRoutes = require('./routes/-orders');
+const demoRequestsRoutes = require('./routes/-demo-requests');
 const { startHoldReleaser } = require('./services/holdReleaser');
 const { startIdentityReleaser } = require('./services/identityReleaser');
 // Self-starting worker: releases scheduled trips whose window is approaching.
@@ -58,6 +59,7 @@ app.use('/api/v1/ratings', ratingsRoutes);
 app.use('/api/v1/orders', ordersRoutes);
 app.use('/api/v1/odofy/webhooks/orders', webhookOrdersRoutes);
 app.use('/api/v1/odofy/checkout', checkoutRoutes);
+app.use('/api/v1/odofy/demo-requests', demoRequestsRoutes);
 app.use(
   '/api/v1/odofy/webhooks/stripe',
   express.raw({ type: 'application/json' }),
