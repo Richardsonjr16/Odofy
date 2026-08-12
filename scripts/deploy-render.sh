@@ -102,12 +102,15 @@ else
   fi
   OWNER_ID="$(printf '%s' "$HTTP_BODY" | jq -r 'if type == "array" and length > 0 then .[0].owner.id else empty end')"
   [ -n "$OWNER_ID" ] || die "could not determine the Render workspace owner id from GET /v1/owners"
+  # Render's node image ships bun; build with `bun install`. Do not use
+  # `npm i -g bun` (postinstall download fails, exit 254) and do not start
+  # with plain `node` (src/ is CJS under package.json type:module).
   create_payload="$(jq -nc \
     --arg name "$SERVICE_NAME" \
     --arg ownerId "$OWNER_ID" \
     --arg repo "$REPO" \
     --argjson envVars "$env_vars_json" \
-    '{type: "web_service", name: $name, ownerId: $ownerId, repo: $repo, autoDeploy: "yes", envVars: $envVars, serviceDetails: {runtime: "node", envSpecificDetails: {buildCommand: "npm install && npm i -g bun", startCommand: "bun run src/-server.js"}, healthCheckPath: "/health", plan: "free", region: "oregon", numInstances: 1}}')"
+    '{type: "web_service", name: $name, ownerId: $ownerId, repo: $repo, autoDeploy: "yes", envVars: $envVars, serviceDetails: {runtime: "node", envSpecificDetails: {buildCommand: "bun install", startCommand: "bun run src/-server.js"}, healthCheckPath: "/health", plan: "free", region: "oregon", numInstances: 1}}')"
   http_request POST "${API_BASE}/services" "$create_payload"
   if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
     SERVICE_ID="$(printf '%s' "$HTTP_BODY" | jq -r '.id // empty')"
@@ -124,7 +127,7 @@ create the service from it. Please create the service via the Render dashboard:
   1. Dashboard -> New -> Blueprint -> select this repo (render.yaml), OR
      New -> Web Service -> repo Richardsonjr16/Odofy.
   2. Name: odofy-backend | Runtime: Node | Branch: main | Region: Oregon
-     Build: npm install && npm i -g bun | Start: bun run src/-server.js | Health path: /health
+     Build: bun install | Start: bun run src/-server.js | Health path: /health
   3. Paste the env vars from your .env file (see render.yaml for the names).
   4. After the deploy finishes, copy the service URL
      (https://odofy-backend.onrender.com) and re-run this script to sync env

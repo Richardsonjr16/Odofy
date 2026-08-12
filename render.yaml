@@ -1,6 +1,6 @@
-# Render Blueprint for the Odofy backend (Express on Node; Render's runtime
-# enum has no "bun", so bun is installed at build time and the server honors
-# Render's injected PORT at deploy time).
+# Render Blueprint for the Odofy backend (Express on Node; Render's node
+# runtime image ships bun, so the build runs `bun install` and the server
+# honors Render's injected PORT at deploy time).
 #
 # Deploy via the Render dashboard ("Blueprint" -> select this repo) or via
 # scripts/deploy-render.sh (Render API). Env var VALUES are intentionally NOT
@@ -18,7 +18,10 @@ services:
     region: oregon
     branch: main
     autoDeploy: true
-    buildCommand: npm install && npm i -g bun
+    # Render's node image ships bun; build with `bun install`. Do not use
+    # `npm i -g bun` (postinstall download fails, exit 254) and do not start
+    # with plain `node` (src/ is CJS under package.json type:module).
+    buildCommand: bun install
     startCommand: bun run src/-server.js
     healthCheckPath: /health
     envVars:
