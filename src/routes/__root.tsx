@@ -163,7 +163,7 @@ function RootLayout() {
             <ul className="text-xs font-semibold text-gray-600 space-y-2">
               <li><Link to="/merchant" className="hover:text-[#5E0009] transition-colors">Merchant Dashboard</Link></li>
               <li><Link to="/overview" className="hover:text-[#5E0009] transition-colors">Shopify Webhooks Integration</Link></li>
-              <li><Link to="/" className="hover:text-[#5E0009] transition-colors">Driver Fleet Portal</Link></li>
+              <li><Link to="/dashboard" className="hover:text-[#5E0009] transition-colors">Driver Fleet Portal</Link></li>
             </ul>
           </div>
 
