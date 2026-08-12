@@ -1,22 +1,24 @@
-# Render Blueprint for the Odofy backend (Express on Bun, port 3001 by default;
-# Render injects its own PORT at deploy time, which the server honors).
+# Render Blueprint for the Odofy backend (Express on Node; Render's runtime
+# enum has no "bun", so bun is installed at build time and the server honors
+# Render's injected PORT at deploy time).
 #
 # Deploy via the Render dashboard ("Blueprint" -> select this repo) or via
 # scripts/deploy-render.sh (Render API). Env var VALUES are intentionally NOT
 # in this file — supply them in the dashboard (or your env file) at deploy time.
 #
-# NOTE: this service is not yet listed in the Blueprint because the branch
-# (feature/render-backend-vercel-api-proxy) is pending merge; once merged to
-# main, "New Blueprint Instance" picks it up automatically.
+# NOTE: odofy-backend already exists on Render (created via the Render API —
+# id srv-d9uf4cp5efls739tld10). This Blueprint documents the same
+# configuration and is kept in sync with scripts/deploy-render.sh; it is also
+# picked up automatically by "New Blueprint Instance" if ever re-created.
 services:
   - type: web
     name: odofy-backend
-    runtime: bun
+    runtime: node
     plan: free
     region: oregon
     branch: main
     autoDeploy: true
-    buildCommand: bun install
+    buildCommand: npm install && npm i -g bun
     startCommand: bun run src/-server.js
     healthCheckPath: /health
     envVars:
