@@ -206,7 +206,7 @@ function MerchantCalculatorComponent() {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link
-              to="/compare/flat-fee-vs-commission"
+              to="/contact"
               className="inline-flex items-center justify-center px-8 py-3 bg-[#5E0009] text-white text-sm font-bold rounded-full hover:bg-[#3a0004] transition-colors shadow-md"
             >
               Book a Free Demo
