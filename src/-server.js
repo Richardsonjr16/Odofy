@@ -31,6 +31,10 @@ require('./workers/-scheduled-dispatch');
 
 const app = express();
 
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.use(requestLogger);
 app.use(rateLimiter);
 

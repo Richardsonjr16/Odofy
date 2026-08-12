@@ -11,6 +11,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import handler from "./dist/server/server.js";
+import { proxyApiRequest } from "./vercel-api-proxy.js";
 
 const fetchHandler = handler as {
   fetch: (request: Request) => Response | Promise<Response>;
@@ -42,7 +43,11 @@ export default async function vercelHandler(
   res: ServerResponse,
 ): Promise<void> {
   try {
-    const webRes = await fetchHandler.fetch(toWebRequest(req));
+    const webReq = toWebRequest(req);
+    // /api/* requests are reverse-proxied to the backend (BACKEND_URL);
+    // proxyApiRequest returns null for everything else, falling through to SSR.
+    const webRes =
+      (await proxyApiRequest(webReq)) ?? (await fetchHandler.fetch(webReq));
     res.statusCode = webRes.status;
     webRes.headers.forEach((value, key) => res.setHeader(key, value));
     if (webRes.body) {
