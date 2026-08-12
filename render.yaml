@@ -1,0 +1,54 @@
+# Render Blueprint for the Odofy backend (Express on Bun, port 3001 by default;
+# Render injects its own PORT at deploy time, which the server honors).
+#
+# Deploy via the Render dashboard ("Blueprint" -> select this repo) or via
+# scripts/deploy-render.sh (Render API). Env var VALUES are intentionally NOT
+# in this file — supply them in the dashboard (or your env file) at deploy time.
+#
+# NOTE: this service is not yet listed in the Blueprint because the branch
+# (feature/render-backend-vercel-api-proxy) is pending merge; once merged to
+# main, "New Blueprint Instance" picks it up automatically.
+services:
+  - type: web
+    name: odofy-backend
+    runtime: bun
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: true
+    buildCommand: bun install
+    startCommand: bun run src/-server.js
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: ODOFY_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: SHOPIFY_WEBHOOK_SECRET
+        sync: false
+      - key: ODOFY_ADMIN_API_KEY
+        sync: false
+      - key: AWS_SES_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: ODOFY_SYSTEM_FROM_EMAIL
+        sync: false
+      - key: MAPBOX_ACCESS_TOKEN
+        sync: false
+    # Persistent disk for uploads (driver selfies, IDs, insurance, proof-of-delivery
+    # images). REQUIRED on a paid plan if uploads must survive service restarts —
+    # the free tier gets an ephemeral disk and all uploads are wiped on redeploy.
+    # Enable by uncommenting once the account is on a paid plan:
+    # diskMounts:
+    #   - name: uploads
+    #     mountPath: /opt/render/project/src/uploads
+    #     sizeGB: 1
